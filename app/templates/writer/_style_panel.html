@@ -1,0 +1,13 @@
+<div class="bg-white rounded-lg border border-gray-200 p-3 text-sm">
+    <h3 class="font-semibold text-gray-500 mb-2">文风参考</h3>
+    {% if styles %}
+    {% for s in styles %}
+    <div class="flex items-center justify-between py-1">
+        <span>{{ s.name }}</span>
+        <span class="text-xs text-gray-400">{{ s.weight }}x</span>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p class="text-gray-400 text-xs">未设置参考文风</p>
+    {% endif %}
+</div>

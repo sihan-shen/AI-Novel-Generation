@@ -1,0 +1,21 @@
+{% for style in styles %}
+<div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+    <div class="flex items-start justify-between">
+        <div>
+            <h3 class="font-medium text-primary-700">{{ style.name }}</h3>
+            <p class="text-xs text-gray-400 mt-1">{{ style.source }}</p>
+        </div>
+        <button hx-delete="/styles/{{ style.id }}" hx-target="#style-list"
+                hx-confirm="删除文风「{{ style.name }}」？"
+                class="text-gray-400 hover:text-red-500 text-sm">✕</button>
+    </div>
+    {% if style.analysis and style.analysis != '{}' %}
+    <div class="mt-2 text-xs text-gray-500 line-clamp-2">{{ style.analysis[:100] }}...</div>
+    {% endif %}
+</div>
+{% else %}
+<div class="col-span-full text-center py-12 text-gray-400">
+    <p class="text-lg">暂无文风</p>
+    <p class="text-sm mt-1">点击右上角"导入文风"开始</p>
+</div>
+{% endfor %}

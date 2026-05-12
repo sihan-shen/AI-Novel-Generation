@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}文风库{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold">文风库</h1>
+    <button hx-get="/styles/import" hx-target="body" hx-swap="beforeend"
+            class="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 text-sm">
+        + 导入文风
+    </button>
+</div>
+<div id="style-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"
+     hx-get="/styles/list" hx-trigger="load" hx-swap="innerHTML">
+    加载中...
+</div>
+{% endblock %}
