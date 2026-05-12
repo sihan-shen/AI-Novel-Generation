@@ -8,6 +8,7 @@ from app.database import get_db
 from app.schemas.setting import SettingCreate, SettingUpdate
 from app.services.setting_service import SettingService, CATEGORIES
 from app.services.project_service import ProjectService
+from app.services.cleaning_service import CleaningService
 
 router = APIRouter(prefix="/project/{project_id}/settings", tags=["settings"])
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
@@ -50,6 +51,15 @@ async def create_setting(request: Request, project_id: str, db: Session = Depend
     SettingService.create(db, data)
     settings = SettingService.list_by_project(db, project_id)
     return templates.TemplateResponse(request, "settings/_list.html", {"settings": settings, "project_id": project_id})
+
+
+@router.post("/clean")
+async def clean_settings(project_id: str, request: Request, db: Session = Depends(get_db)):
+    basic = CleaningService.basic_clean(db, project_id)
+    deep = CleaningService.deep_clean(db, project_id)
+    return templates.TemplateResponse(request, "settings/_clean_report.html", {
+        "basic": basic, "deep": deep,
+    })
 
 
 @router.get("/{setting_id}")

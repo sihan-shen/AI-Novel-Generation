@@ -7,7 +7,7 @@
         <p class="text-sm text-gray-500">设定集</p>
     </div>
     <div class="flex gap-2">
-        <button id="clean-btn"
+        <button hx-post="/project/{{ project.id }}/settings/clean" hx-target="body" hx-swap="beforeend"
                 class="px-4 py-2 text-sm bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 border border-amber-200">
             🧹 打扫
         </button>
