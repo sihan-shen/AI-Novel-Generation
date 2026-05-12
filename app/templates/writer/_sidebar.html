@@ -1,0 +1,14 @@
+{% for ch in chapters %}
+<div class="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer text-sm group"
+     hx-get="/project/{{ project_id }}/writer/{{ ch.id }}" hx-target="#editor-area" hx-swap="innerHTML">
+    <div class="truncate flex-1">
+        <span>{{ ch.title }}</span>
+        <span class="text-xs text-gray-400 ml-1">{{ ch.word_count }}字</span>
+    </div>
+    <span class="text-xs text-gray-300 ml-1">{{ ch.status }}</span>
+    <button hx-delete="/project/{{ project_id }}/writer/{{ ch.id }}" hx-target="#chapter-sidebar"
+            hx-confirm="删除？" class="text-xs text-gray-300 hover:text-red-500 ml-2 opacity-0 group-hover:opacity-100">✕</button>
+</div>
+{% else %}
+<p class="text-sm text-gray-400 text-center py-8">暂无章节</p>
+{% endfor %}

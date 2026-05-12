@@ -1,0 +1,13 @@
+<div>
+    <div class="flex items-center justify-between mb-3">
+        <input type="text" name="title" value="{{ chapter.title }}"
+               class="text-xl font-bold border-none outline-none bg-transparent w-full"
+               hx-put="/project/{{ chapter.project_id }}/writer/{{ chapter.id }}"
+               hx-trigger="change" hx-include="closest div">
+    </div>
+    <textarea name="content"
+              class="w-full h-[calc(100vh-16rem)] border-0 outline-none resize-none text-base leading-relaxed font-mono"
+              placeholder="开始写作..."
+              hx-put="/project/{{ chapter.project_id }}/writer/{{ chapter.id }}"
+              hx-trigger="changed delay:2s" hx-include="[name='title']">{{ chapter.content }}</textarea>
+</div>

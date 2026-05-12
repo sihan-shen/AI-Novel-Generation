@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}写作 - {{ project.title }}{% endblock %}
+{% block content %}
+<div class="flex gap-4 h-[calc(100vh-8rem)]">
+    <div class="w-64 shrink-0 overflow-y-auto">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold text-sm text-gray-500">章节</h2>
+            <button hx-get="/project/{{ project.id }}/writer/new" hx-target="body" hx-swap="beforeend"
+                    class="text-xs text-primary-600 hover:text-primary-700">+ 新建</button>
+        </div>
+        <div id="chapter-sidebar" class="space-y-1"
+             hx-get="/project/{{ project.id }}/writer/chapters" hx-trigger="load" hx-swap="innerHTML">
+            加载中...
+        </div>
+    </div>
+    <div class="flex-1 bg-white rounded-lg border border-gray-200 p-4 overflow-y-auto" id="editor-area">
+        <div class="text-center text-gray-400 py-20">
+            <p class="text-lg">选择左侧章节开始写作</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
