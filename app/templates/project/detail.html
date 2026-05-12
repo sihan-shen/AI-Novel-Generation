@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ project.title }} - Novel Forge{% endblock %}
+{% block content %}
+<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold">{{ project.title }}</h1>
+            {% if project.genre %}<span class="text-sm bg-gray-100 text-gray-600 px-2 py-0.5 rounded mt-1 inline-block">{{ project.genre }}</span>{% endif %}
+        </div>
+        <a href="/" class="text-sm text-gray-500 hover:text-gray-700">← 返回</a>
+    </div>
+    {% if project.description %}<p class="text-gray-600 mt-3">{{ project.description }}</p>{% endif %}
+</div>
+
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <a href="/project/{{ project.id }}/outline" class="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow text-center">
+        <div class="text-3xl mb-2">📋</div>
+        <div class="font-semibold">大纲</div>
+        <div class="text-xs text-gray-400 mt-1">卷·章·节管理</div>
+    </a>
+    <a href="/project/{{ project.id }}/settings" class="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow text-center">
+        <div class="text-3xl mb-2">🌍</div>
+        <div class="font-semibold">设定集</div>
+        <div class="text-xs text-gray-400 mt-1">世界观·人物</div>
+    </a>
+    <a href="/project/{{ project.id }}/writer" class="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow text-center">
+        <div class="text-3xl mb-2">✍️</div>
+        <div class="font-semibold">写作</div>
+        <div class="text-xs text-gray-400 mt-1">创作编辑</div>
+    </a>
+    <a href="/project/{{ project.id }}/review" class="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow text-center">
+        <div class="text-3xl mb-2">✅</div>
+        <div class="font-semibold">审阅</div>
+        <div class="text-xs text-gray-400 mt-1">自动审阅</div>
+    </a>
+</div>
+{% endblock %}

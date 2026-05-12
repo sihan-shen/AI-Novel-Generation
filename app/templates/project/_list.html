@@ -1,0 +1,24 @@
+{% for project in projects %}
+<div class="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow">
+    <div class="flex items-start justify-between">
+        <div>
+            <a href="/projects/{{ project.id }}" class="text-lg font-semibold text-primary-700 hover:underline">{{ project.title }}</a>
+            {% if project.genre %}<span class="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{{ project.genre }}</span>{% endif %}
+        </div>
+        <button hx-delete="/projects/{{ project.id }}" hx-target="#project-list" hx-confirm="删除该项目？"
+                class="text-gray-400 hover:text-red-500 text-sm">✕</button>
+    </div>
+    {% if project.description %}
+    <p class="text-sm text-gray-500 mt-2 line-clamp-2">{{ project.description }}</p>
+    {% endif %}
+    <div class="flex items-center justify-between mt-4 text-xs text-gray-400">
+        <span>{{ project.created_at.strftime('%Y-%m-%d') }}</span>
+        <span>{{ project.status }}</span>
+    </div>
+</div>
+{% else %}
+<div class="col-span-full text-center py-12 text-gray-400">
+    <p class="text-lg">还没有项目</p>
+    <p class="mt-1">点击右上角"新建项目"开始</p>
+</div>
+{% endfor %}
