@@ -1,13 +1,18 @@
+import os
 from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 app = FastAPI(title="AI Novel Generation Tool")
 
 BASE_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+
+@app.on_event("startup")
+def on_startup():
+    os.makedirs(BASE_DIR.parent / "data", exist_ok=True)
 
 
 @app.get("/", response_class=HTMLResponse)

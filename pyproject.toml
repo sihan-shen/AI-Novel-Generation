@@ -16,5 +16,9 @@ dependencies = [
     "pydantic-settings>=2.2.0",
 ]
 
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [tool.ruff]
 line-length = 100
