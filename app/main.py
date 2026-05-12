@@ -5,13 +5,14 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from app.database import init_db
-from app.routers import projects, outlines, settings, chapters
+from app.routers import projects, outlines, settings, chapters, brainstorming
 
 app = FastAPI(title="AI Novel Generation Tool")
 app.include_router(projects.router)
 app.include_router(outlines.router)
 app.include_router(settings.router)
 app.include_router(chapters.router)
+app.include_router(brainstorming.router)
 
 BASE_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}头脑风暴{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <h1 class="text-2xl font-bold mb-2">头脑风暴</h1>
+    <p class="text-sm text-gray-500 mb-6">自由发散 · 上下文风暴 · 定向激荡</p>
+
+    <div class="bg-white rounded-lg border border-gray-200 p-6">
+        <div class="flex gap-2 mb-4" id="mode-selector">
+            <button onclick="setMode('free')" class="mode-btn px-4 py-2 text-sm rounded-lg bg-primary-100 text-primary-700" data-mode="free">自由发散</button>
+            <button onclick="setMode('context')" class="mode-btn px-4 py-2 text-sm rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200" data-mode="context">上下文风暴</button>
+            <button onclick="setMode('directed')" class="mode-btn px-4 py-2 text-sm rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200" data-mode="directed">定向激荡</button>
+        </div>
+
+        <form hx-post="/brainstorm/generate" hx-target="#result-area" hx-swap="innerHTML">
+            <input type="hidden" name="mode" id="mode-input" value="free">
+            <div class="mb-3" id="project-select-area" style="display:none">
+                <select name="project_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <option value="">选择项目（可选）</option>
+                </select>
+            </div>
+            <textarea name="query" rows="4" placeholder="输入你的问题或想法..."
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 mb-3"></textarea>
+            <button type="submit" class="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 text-sm">
+                开始头脑风暴
+            </button>
+        </form>
+    </div>
+
+    <div id="result-area" class="mt-4"></div>
+</div>
+
+<script>
+function setMode(mode) {
+    document.getElementById('mode-input').value = mode;
+    document.querySelectorAll('.mode-btn').forEach(b => {
+        b.classList.toggle('bg-primary-100', b.dataset.mode === mode);
+        b.classList.toggle('text-primary-700', b.dataset.mode === mode);
+        b.classList.toggle('bg-gray-100', b.dataset.mode !== mode);
+        b.classList.toggle('text-gray-600', b.dataset.mode !== mode);
+    });
+    document.getElementById('project-select-area').style.display = mode === 'context' ? 'block' : 'none';
+}
+</script>
+{% endblock %}
