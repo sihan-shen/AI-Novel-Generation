@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.title }} - 大纲{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <a href="/projects/{{ project.id }}" class="text-sm text-primary-600 hover:underline">&larr; 返回项目</a>
+            <h1 class="text-2xl font-bold mt-1">{{ project.title }} - 大纲</h1>
+        </div>
+        <button hx-get="/project/{{ project.id }}/outline/new-item"
+                hx-target="#outline-form-container" hx-swap="innerHTML"
+                class="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+            + 添加章节
+        </button>
+    </div>
+
+    <div id="outline-form-container"></div>
+
+    <div id="outline-tree" class="space-y-1"
+         hx-get="/project/{{ project.id }}/outline/tree" hx-trigger="load" hx-swap="innerHTML">
+    </div>
+</div>
+{% endblock %}

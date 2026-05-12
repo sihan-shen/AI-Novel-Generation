@@ -1,0 +1,34 @@
+{% macro render_item(item, project_id) %}
+<div class="outline-item" data-id="{{ item.id }}" data-parent="{{ item.parent_id or '' }}" data-order="{{ item.sort_order }}">
+    <div class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 group"
+         style="margin-left: {{ (item.level - 1) * 24 }}px">
+        <span class="grip cursor-grab text-gray-300 hover:text-gray-500 text-sm">⠿</span>
+        <span class="text-xs text-gray-400 min-w-[4rem]">{% if item.level == 1 %}卷{% elif item.level == 2 %}章{% else %}节{% endif %}</span>
+        <span class="text-sm font-medium text-gray-800 flex-1">{{ item.title }}</span>
+        <span class="text-xs text-gray-400">{{ item.status }}</span>
+        <div class="hidden group-hover:flex gap-1">
+            <button hx-get="/project/{{ project_id }}/outline/new-item?parent_id={{ item.id }}&level={{ item.level + 1 }}"
+                    hx-target="#outline-form-container" hx-swap="innerHTML"
+                    class="text-xs px-2 py-1 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded">
+                + 子项
+            </button>
+            <button hx-delete="/project/{{ project_id }}/outline/{{ item.id }}"
+                    hx-target="#outline-tree" hx-swap="innerHTML" hx-confirm="删除该大纲项及其子项？"
+                    class="text-xs px-2 py-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded">
+                删除
+            </button>
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+<div id="outline-tree-container">
+    {% for item in outlines %}
+        {{ render_item(item, project_id) }}
+    {% else %}
+    <div class="text-center py-12 text-gray-400">
+        <p class="text-lg">还没有大纲项</p>
+        <p class="mt-1">点击"添加章节"开始构建大纲</p>
+    </div>
+    {% endfor %}
+</div>
