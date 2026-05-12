@@ -53,6 +53,22 @@ async def create_setting(request: Request, project_id: str, db: Session = Depend
     return templates.TemplateResponse(request, "settings/_list.html", {"settings": settings, "project_id": project_id})
 
 
+@router.put("/{setting_id}")
+async def update_setting(setting_id: str, request: Request, project_id: str, db: Session = Depends(get_db)):
+    form = await request.form()
+    from app.schemas.setting import SettingUpdate
+    data = SettingUpdate(
+        name=form.get("name"),
+        category=form.get("category"),
+        summary=form.get("summary"),
+        content=form.get("content"),
+        weight=int(form.get("weight", 5)) if form.get("weight") else None,
+    )
+    SettingService.update(db, setting_id, data)
+    settings = SettingService.list_by_project(db, project_id)
+    return templates.TemplateResponse(request, "settings/_list.html", {"settings": settings, "project_id": project_id})
+
+
 @router.post("/clean")
 async def clean_settings(project_id: str, request: Request, db: Session = Depends(get_db)):
     basic = CleaningService.basic_clean(db, project_id)

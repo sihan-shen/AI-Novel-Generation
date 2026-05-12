@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from app.llm.context_builder import ContextBuilder
-from app.llm.adapter import get_adapter
+from app.llm.adapter import get_adapter, record_usage
 
 
 class BrainstormService:
@@ -26,4 +26,5 @@ class BrainstormService:
             return "请提供有效的模式或项目上下文。"
 
         response = await adapter.generate(messages, temperature=0.9, max_tokens=2048)
+        record_usage(db, adapter.model, response.usage, scenario=f"brainstorm_{mode}")
         return response.content

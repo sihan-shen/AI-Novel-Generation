@@ -48,14 +48,15 @@ class OutlineService:
         return obj
 
     @staticmethod
-    def delete(db: Session, outline_id: str) -> bool:
+    def delete(db: Session, outline_id: str) -> tuple[bool, int]:
         obj = OutlineService.get(db, outline_id)
         if not obj:
-            return False
+            return False, 0
+        child_count = db.query(Outline).filter(Outline.parent_id == outline_id).count()
         db.query(Outline).filter(Outline.parent_id == outline_id).delete()
         db.delete(obj)
         db.commit()
-        return True
+        return True, child_count
 
     @staticmethod
     def reorder(db: Session, items: list[dict]) -> None:

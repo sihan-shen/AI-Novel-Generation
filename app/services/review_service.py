@@ -41,6 +41,8 @@ class ReviewService:
         messages = builder.build("review", chapter.project_id, request=chapter.content[:3000])
         adapter = get_adapter()
         response = await adapter.generate(messages, temperature=0.3, max_tokens=2048)
+        from app.llm.adapter import record_usage
+        record_usage(db, adapter.model, response.usage, scenario="review")
 
         findings = [
             {"dimension": "setting_consistency", "severity": "medium", "description": "设定一致性检查完成", "suggestion": response.content[:200]},

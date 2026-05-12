@@ -7,6 +7,7 @@ class ChapterService:
     @staticmethod
     def create(db: Session, data: ChapterCreate) -> Chapter:
         ch = Chapter(**data.model_dump())
+        ch.word_count = len(ch.content) if ch.content else 0
         db.add(ch)
         db.commit()
         db.refresh(ch)

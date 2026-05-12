@@ -67,7 +67,9 @@ async def update_outline(outline_id: str, request: Request, db: Session = Depend
 
 @router.delete("/{outline_id}")
 async def delete_outline(project_id: str, outline_id: str, request: Request, db: Session = Depends(get_db)):
-    OutlineService.delete(db, outline_id)
+    ok, child_count = OutlineService.delete(db, outline_id)
+    if not ok:
+        return HTMLResponse("Not found", status_code=404)
     outlines = OutlineService.get_tree(db, project_id)
     return templates.TemplateResponse(request, "outline/_tree.html", {"outlines": outlines, "project_id": project_id})
 
