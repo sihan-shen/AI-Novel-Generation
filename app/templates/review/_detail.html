@@ -1,0 +1,23 @@
+<div id="modal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-6 w-full max-w-2xl shadow-xl" onclick="event.stopPropagation()" style="max-height:80vh; overflow-y:auto;">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold">审阅详情</h2>
+            <button onclick="this.closest('#modal').remove()" class="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+        <div class="text-sm">
+            <p><span class="text-gray-500">范围：</span>{{ review.scope }}</p>
+            <p><span class="text-gray-500">状态：</span>{{ review.status }}</p>
+            <p><span class="text-gray-500">时间：</span>{{ review.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+            {% if review.findings and review.findings != '[]' %}
+            <div class="mt-4">
+                <h3 class="font-semibold mb-2">审阅发现</h3>
+                <div class="space-y-2">
+                    {% for finding in review.findings %}
+                    <div class="p-3 bg-gray-50 rounded-lg text-xs">{{ finding }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>

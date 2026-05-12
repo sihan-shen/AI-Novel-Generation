@@ -1,0 +1,21 @@
+{% for review in reviews %}
+<div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+    <div class="flex items-center justify-between">
+        <div>
+            <span class="font-medium text-sm">{{ review.scope }}</span>
+            <span class="text-xs text-gray-400 ml-2">{{ review.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+        </div>
+        <span class="text-xs px-2 py-0.5 rounded {% if review.status == 'pending' %}bg-yellow-100 text-yellow-700{% else %}bg-green-100 text-green-700{% endif %}">
+            {{ review.status }}
+        </span>
+    </div>
+    {% if review.summary and review.summary != '{}' %}
+    <div class="mt-2 text-xs text-gray-500">{{ review.summary[:100] }}</div>
+    {% endif %}
+</div>
+{% else %}
+<div class="text-center py-12 text-gray-400">
+    <p class="text-lg">暂无审阅记录</p>
+    <p class="text-sm mt-1">选择章节发起自动审阅</p>
+</div>
+{% endfor %}
