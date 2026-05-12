@@ -1,0 +1,20 @@
+<div id="modal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-6 w-full max-w-lg shadow-xl" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold">{{ setting.name }}</h2>
+            <button onclick="this.closest('#modal').remove()" class="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+        <div class="space-y-3 text-sm">
+            <div><span class="text-gray-500">分类：</span>{{ setting.category }}</div>
+            {% if setting.summary %}<div><span class="text-gray-500">概要：</span>{{ setting.summary }}</div>{% endif %}
+            {% if setting.weight %}<div><span class="text-gray-500">重要度：</span>{{ setting.weight }}/10</div>{% endif %}
+            <div><span class="text-gray-500">状态：</span>{{ setting.status }}</div>
+            {% if setting.content %}
+            <div>
+                <span class="text-gray-500">详细内容：</span>
+                <div class="mt-1 p-3 bg-gray-50 rounded-lg whitespace-pre-wrap text-xs">{{ setting.content }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>

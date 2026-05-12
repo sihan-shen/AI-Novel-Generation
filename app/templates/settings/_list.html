@@ -1,0 +1,30 @@
+{% for item in settings %}
+<div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+    <div class="flex items-start justify-between">
+        <div class="flex-1">
+            <div class="flex items-center gap-2">
+                <span class="font-medium text-primary-700">{{ item.name }}</span>
+                <span class="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{{ item.category }}</span>
+                {% if item.weight >= 7 %}<span class="text-xs text-amber-600">★核心</span>{% endif %}
+                {% if item.status == 'deprecated' %}<span class="text-xs text-red-400">已废弃</span>{% endif %}
+            </div>
+            {% if item.summary %}
+            <p class="text-sm text-gray-500 mt-1">{{ item.summary }}</p>
+            {% endif %}
+        </div>
+        <div class="flex gap-1 ml-2">
+            <button hx-get="/project/{{ project_id }}/settings/{{ item.id }}"
+                    hx-target="body" hx-swap="beforeend"
+                    class="text-xs text-gray-400 hover:text-primary-600 px-1">查看</button>
+            <button hx-delete="/project/{{ project_id }}/settings/{{ item.id }}"
+                    hx-target="#settings-list" hx-confirm="删除「{{ item.name }}」？"
+                    class="text-xs text-gray-400 hover:text-red-500 px-1">✕</button>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="text-center py-12 text-gray-400">
+    <p class="text-lg">暂无设定条目</p>
+    <p class="text-sm mt-1">选择一个分类后点击添加</p>
+</div>
+{% endfor %}
