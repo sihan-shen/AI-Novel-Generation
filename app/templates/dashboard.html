@@ -1,20 +1,15 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Novel Forge</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-50 text-gray-900">
-    <nav class="bg-white border-b border-gray-200 px-4 py-2.5">
-        <div class="flex items-center justify-between max-w-7xl mx-auto">
-            <a href="/" class="text-xl font-bold text-primary-700">Novel Forge</a>
-        </div>
-    </nav>
-    <main class="max-w-7xl mx-auto px-4 py-6">
-        <h1 class="text-2xl font-bold mb-4">Novel Forge</h1>
-        <p class="text-gray-500">AI-assisted novel writing tool. Ready for setup.</p>
-    </main>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}项目列表 - Novel Forge{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold">我的项目</h1>
+    <button hx-get="/projects/new" hx-target="body" hx-swap="beforeend"
+            class="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 text-sm">
+        + 新建项目
+    </button>
+</div>
+<div id="project-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+     hx-get="/projects/list" hx-trigger="load" hx-swap="innerHTML">
+    <div class="col-span-full text-center py-12 text-gray-400">加载中...</div>
+</div>
+{% endblock %}
