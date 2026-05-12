@@ -31,6 +31,16 @@ class StyleService:
         return True
 
     @staticmethod
+    def set_project_styles(db: Session, project_id: str, style_weights: list[dict]) -> None:
+        """Set style weights for a project. style_weights = [{"style_id": "...", "weight": 0.7}, ...]"""
+        from app.models.style import ProjectStyleLink
+        db.query(ProjectStyleLink).filter(ProjectStyleLink.project_id == project_id).delete()
+        for sw in style_weights:
+            link = ProjectStyleLink(project_id=project_id, style_id=sw["style_id"], weight=sw.get("weight", 1.0))
+            db.add(link)
+        db.commit()
+
+    @staticmethod
     async def analyze_text(text: str) -> str:
         """Send text to LLM for style analysis."""
         adapter = get_adapter()

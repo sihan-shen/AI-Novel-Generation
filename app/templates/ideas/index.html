@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}灵感便签{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold">灵感便签</h1>
+    <button onclick="document.getElementById('idea-modal').classList.remove('hidden')"
+            class="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 text-sm">
+        + 新便签
+    </button>
+</div>
+<div id="idea-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+     hx-get="/ideas/list" hx-trigger="load" hx-swap="innerHTML">
+    加载中...
+</div>
+
+<!-- New idea modal -->
+<div id="idea-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-xl" onclick="event.stopPropagation()">
+        <h2 class="text-lg font-bold mb-4">新灵感便签</h2>
+        <form hx-post="/ideas/create" hx-target="#idea-list" hx-swap="innerHTML">
+            <div class="mb-3">
+                <input type="text" name="title" placeholder="标题（可选）"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            </div>
+            <div class="mb-3">
+                <textarea name="content" rows="4" placeholder="记录你的灵感..."
+                          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></textarea>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="this.closest('#idea-modal').classList.add('hidden')"
+                        class="px-4 py-2 text-sm text-gray-600">取消</button>
+                <button type="submit" class="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                        onclick="setTimeout(() => document.getElementById('idea-modal').classList.add('hidden'), 100)">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

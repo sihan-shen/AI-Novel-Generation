@@ -1,0 +1,22 @@
+{% for idea in ideas %}
+<div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+    <div class="flex items-start justify-between">
+        <div class="flex-1">
+            {% if idea.title %}<h3 class="font-medium">{{ idea.title }}</h3>{% endif %}
+            <p class="text-sm text-gray-600 mt-1">{{ idea.content[:200] }}{% if idea.content|length > 200 %}...{% endif %}</p>
+            <div class="flex items-center gap-2 mt-2 text-xs text-gray-400">
+                <span>{{ idea.source }}</span>
+                <span>{{ idea.created_at.strftime('%m-%d') }}</span>
+            </div>
+        </div>
+        <button hx-delete="/ideas/{{ idea.id }}" hx-target="#idea-list"
+                hx-confirm="删除此便签？"
+                class="text-gray-400 hover:text-red-500 text-sm">✕</button>
+    </div>
+</div>
+{% else %}
+<div class="col-span-full text-center py-12 text-gray-400">
+    <p class="text-lg">暂无灵感便签</p>
+    <p class="text-sm mt-1">点击右上角开始记录</p>
+</div>
+{% endfor %}

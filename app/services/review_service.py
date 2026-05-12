@@ -24,6 +24,17 @@ class ReviewService:
         return review
 
     @staticmethod
+    async def diff_review(db: Session, chapter: Chapter, previous_content: str) -> dict:
+        """Only review newly added/modified content."""
+        if not previous_content:
+            return await ReviewService.run_review(db, chapter)
+        new_content = chapter.content[len(previous_content):] if len(chapter.content) > len(previous_content) else chapter.content
+        review_result = await ReviewService.run_review(db, chapter)
+        review_result["scope"] = "diff"
+        review_result["summary"]["diff_length"] = len(new_content)
+        return review_result
+
+    @staticmethod
     async def run_review(db: Session, chapter: Chapter) -> dict:
         """Run full review on a chapter."""
         builder = ContextBuilder(db)
