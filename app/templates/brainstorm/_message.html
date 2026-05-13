@@ -5,9 +5,20 @@
     </div>
 </div>
 {% else %}
-<div style="display: flex; justify-content: flex-start;">
+<div class="assistant-message" style="display: flex; justify-content: flex-start;">
     <div style="max-width: 75%; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px 16px 16px 4px; padding: 0.875rem 1rem; font-size: 0.875rem; line-height: 1.7; color: var(--text);">
-        <div class="brainstorm-content">{{ msg.content }}</div>
+        <div class="brainstorm-content md-rendered">{{ msg.content }}</div>
     </div>
 </div>
 {% endif %}
+
+<script>
+(function() {
+    document.querySelectorAll('.md-rendered').forEach(function(el) {
+        if (!el.dataset.rendered && typeof marked !== 'undefined') {
+            el.innerHTML = marked.parse(el.textContent);
+            el.dataset.rendered = 'true';
+        }
+    });
+})();
+</script>

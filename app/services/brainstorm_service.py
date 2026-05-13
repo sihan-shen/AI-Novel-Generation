@@ -9,27 +9,55 @@ from app.schemas.setting import SettingCreate
 from app.schemas.outline import OutlineCreate
 
 
-EXTRACTION_SYSTEM_PROMPT = """你是一位小说创作助手。分析以下头脑风暴对话，提取其中有价值的创作素材。
-将其归类为：设定条目（人物/世界观/组织/地理/事件等）、大纲节点（情节/章节方向）、灵感想法。
+EXTRACTION_SYSTEM_PROMPT = """你是一位小说创作助理。分析以下头脑风暴对话，提取其中可用于创作的素材。
 
-输出 JSON 格式：
+## 提取类别
+
+### 设定条目 (settings)
+适合存入设定集的内容：人物、组织、世界观规则、地理地点、物品、事件等。
+每个条目需有明确的：分类(category)、名称(name)、概要(summary)、详细描述(content)、重要度(weight 1-10)。
+- 人物包含：身份、性格、目标、关系
+- 组织包含：性质、宗旨、成员
+- 世界观包含：规则、限制、特点
+
+### 大纲节点 (outlines)
+适合写入大纲的情节方向或章节建议。
+每个节点需有：层级(level: 2=章/3=节)、标题(title)、概要(summary)。
+
+### 灵感想法 (ideas)
+有价值的零散创意，尚不足以形成完整设定或大纲。
+
+## 输出格式
 {
   "settings": [{"category": "人物", "name": "...", "summary": "...", "content": "...", "weight": 7}],
   "outlines": [{"level": 2, "title": "...", "summary": "..."}],
   "ideas": [{"title": "...", "content": "..."}]
 }
 
-注意：
-- 只提取对话中真正出现的内容，不要编造
-- 设定条目要有明确的名称和分类
-- 大纲节点应该是可落地的章节方向
-- weight 1-10，越核心越高"""
+## 注意事项
+- 只提取对话中真正出现的内容，不要编造或添加
+- 设定条目必须可独立理解，名称要具体
+- 如果某类没有提取到，返回空数组即可"""
 
 
 class BrainstormService:
     """Stateless chat service for brainstorming conversations."""
 
-    SYSTEM_PROMPT = "你是一位创意策划顾问。帮助作者拓展思路、激发灵感。输出应具有发散性和启发性，而非结论性。回答使用中文。"
+    SYSTEM_PROMPT = """你是一位专业的小说创作顾问，擅长帮助作者拓展创意、完善构思。
+
+## 你的能力
+- 基于作者提供的故事方向，发散多种可能的剧情走向
+- 帮助塑造立体的人物（动机、弧光、关系）
+- 设计有张力的情节结构和冲突
+- 构建自洽的世界观和设定体系
+- 对作者已有的构思提供建设性反馈和深化建议
+
+## 交流原则
+- 回答使用中文，语气友好且专业
+- 输出结构化：分点列出、层次分明
+- 提供具体可操作的创意，而非空泛的评价
+- 适当追问和引导，帮助作者深入思考
+- 每次围绕一个主题展开，避免信息过载"""
 
     @staticmethod
     async def chat(db: Session, messages: list[dict], project_id: str | None = None) -> str:

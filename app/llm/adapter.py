@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, AsyncGenerator
 
 
 class LLMResponse:
@@ -11,6 +11,10 @@ class LLMResponse:
 class LLMAdapter(ABC):
     @abstractmethod
     async def generate(self, messages: list[dict], **kwargs) -> LLMResponse:
+        ...
+
+    @abstractmethod
+    async def generate_stream(self, messages: list[dict], **kwargs) -> AsyncGenerator[str, None]:
         ...
 
     @abstractmethod

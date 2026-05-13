@@ -1,6 +1,6 @@
 import json
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from pathlib import Path
 from fastapi.templating import Jinja2Templates
@@ -10,6 +10,7 @@ from app.services.brainstorm_service import BrainstormService
 from app.services.idea_service import IdeaService
 from app.services.project_service import ProjectService
 from app.models.idea import Idea
+from app.llm.adapter import get_adapter
 
 router = APIRouter(prefix="/brainstorm", tags=["brainstorm"])
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
@@ -32,6 +33,37 @@ async def brainstorm_chat(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "brainstorm/_message.html", {
         "msg": {"role": "assistant", "content": reply},
     })
+
+
+@router.post("/chat/stream")
+async def brainstorm_chat_stream(request: Request, db: Session = Depends(get_db)):
+    body = await request.json()
+    messages = body.get("messages", [])
+    project_id = body.get("project_id")
+
+    if not messages or messages[0].get("role") != "system":
+        from app.services.brainstorm_service import BrainstormService as BS
+        messages = [{"role": "system", "content": BS.SYSTEM_PROMPT}] + messages
+
+    if project_id:
+        from app.llm.context_builder import ContextBuilder
+        builder = ContextBuilder(db)
+        from app.services.project_service import ProjectService
+        project = ProjectService.get(db, project_id)
+        if project:
+            ctx_messages = builder.build("brainstorm", project_id, request="")
+            for m in ctx_messages:
+                if m["role"] == "system":
+                    messages[0]["content"] += "\n\n" + m["content"]
+
+    adapter = get_adapter(db)
+
+    async def event_stream():
+        async for chunk in adapter.generate_stream(messages, temperature=0.9, max_tokens=4096):
+            yield f"data: {json.dumps({'content': chunk})}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @router.post("/extract")
