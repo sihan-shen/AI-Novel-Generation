@@ -1,7 +1,7 @@
-<div class="bg-white rounded-lg border border-gray-200 p-6 mt-4">
-    <div class="flex items-center justify-between mb-3">
-        <h3 class="font-semibold">头脑风暴结果</h3>
-        <button onclick="this.closest('div').remove()" class="text-gray-400 hover:text-gray-600 text-sm">✕</button>
+<div class="card" style="padding: 1.5rem; margin-top: 1rem;">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+        <h3 style="font-weight: 600; font-size: 0.9375rem;">头脑风暴结果</h3>
+        <button onclick="this.closest('div').remove()" style="background: none; border: none; cursor: pointer; color: var(--text-tertiary); font-size: 0.875rem; padding: 0.25rem;">✕</button>
     </div>
-    <div class="prose prose-sm max-w-none whitespace-pre-wrap">{{ result }}</div>
+    <div style="font-size: 0.875rem; line-height: 1.7; white-space: pre-wrap; color: var(--text);">{{ result }}</div>
 </div>
