@@ -188,16 +188,89 @@ function newSession() {
 
 ---
 
-## 6. 数据存储
+## 6. 保存与智能提取
 
-### 临时存储：sessionStorage
+### 6.1 保存流程（核心变更）
 
-- 当前对话消息（刷新页面保留）
-- 关闭标签页自动清除
+保存不是简单存档，而是 **LLM 从对话中提取结构化内容** 的过程：
 
-### 持久存储：复用 Ideas 表
+```
+用户点击"保存到项目"
+  │
+  ├─ 选择目标项目（如未选择）
+  │
+  ▼
+POST /brainstorm/extract
+  │
+  ├─ 后端将完整对话历史发给 LLM
+  ├─ 专用 extraction prompt 解析对话
+  │
+  ▼
+LLM 返回提取结果（结构化 JSON）：
+  ├─ settings: 可沉淀为设定条目的内容
+  │   └─ [{category, name, summary, content, weight}, ...]
+  ├─ outlines: 可沉淀为大纲节点的内容
+  │   └─ [{level, title, summary}, ...]
+  └─ ideas: 其他有价值的灵感
+      └─ [{title, content}, ...]
+  │
+  ▼
+用户审阅提取结果（UI 展示）：
+  ┌─────────────────────────────────────┐
+  │  📋 提取到 3 个设定、2 个大纲节点    │
+  │                                     │
+  │  ☑ [人物] 林墨 - 调查员             │
+  │  ☑ [组织] 夜莺组织 - 神秘机构       │
+  │  ☐ [地理] 镜城 - 镜像都市           │
+  │                                     │
+  │  ☑ 大纲：第三章 - 林墨潜入夜莺      │
+  │  ☑ 大纲：第四章 - 镜城真相          │
+  │                                     │
+  │        [确认保存]  [取消]           │
+  └─────────────────────────────────────┘
+  │
+  ▼
+确认后：
+  ├─ 设定条目 → SettingService.create（批量）
+  ├─ 大纲节点 → OutlineService.create（批量）
+  └─ 原始对话 → Idea（作为记录留存）
+```
 
-保存对话时，将完整消息列表存入 `Idea` 表的 `content` 字段（JSON），`promoted_to_type = "chat"` 标记。无需新建表。
+### 6.2 Extraction Prompt
+
+```yaml
+system: |
+  你是一位小说创作助手。分析以下头脑风暴对话，提取其中有价值的创作素材。
+  将其归类为：设定条目（人物/世界观/组织/地理/事件等）、大纲节点（情节/章节方向）、灵感想法。
+
+  输出 JSON 格式：
+  {
+    "settings": [{"category": "人物", "name": "...", "summary": "...", "content": "...", "weight": 7}],
+    "outlines": [{"level": 2, "title": "...", "summary": "..."}],
+    "ideas": [{"title": "...", "content": "..."}]
+  }
+
+  注意：
+  - 只提取对话中真正出现的内容，不要编造
+  - 设定条目要有明确的名称和分类
+  - 大纲节点应该是可落地的章节方向
+  - weight 1-10，越核心越高
+```
+
+### 6.3 新增接口
+
+| 方法 | 路径 | 功能 |
+|------|------|------|
+| POST | `/brainstorm/extract` | LLM 提取对话中的结构化内容 |
+| POST | `/brainstorm/confirm-save` | 用户确认后批量写入 DB |
+
+### 6.4 数据存储
+
+- **临时存储**：sessionStorage（当前对话消息）
+- **持久存储**：
+  - 提取出的设定 → `settings` 表
+  - 提取出的大纲 → `outlines` 表
+  - 原始对话 → `ideas` 表（`source = "brainstorm"`）
 
 ---
 
