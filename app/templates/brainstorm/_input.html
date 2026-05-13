@@ -1,0 +1,87 @@
+<form id="chat-form" onsubmit="return sendMessage(event)" style="display: flex; gap: 0.5rem; align-items: flex-end;">
+    <select id="project-select" style="width: 160px; flex-shrink: 0; padding: 0.5rem 0.625rem; font-size: 0.8125rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text);">
+        <option value="">无项目上下文</option>
+        {% for p in projects %}
+        <option value="{{ p.id }}">{{ p.title }}</option>
+        {% endfor %}
+    </select>
+    <textarea id="chat-input" rows="1" placeholder="输入消息... (Enter 发送, Shift+Enter 换行)"
+              style="flex: 1; padding: 0.5rem 0.75rem; font-size: 0.875rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); resize: none; max-height: 120px;"
+              oninput="autoResize(this)" onkeydown="onInputKeydown(event)"></textarea>
+    <button type="submit" id="send-btn" class="btn btn-primary" style="padding: 0.5rem 1rem; border-radius: 8px;">发送</button>
+</form>
+
+<script>
+function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function onInputKeydown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('chat-form').requestSubmit();
+    }
+}
+
+function sendMessage(e) {
+    e.preventDefault();
+    var input = document.getElementById('chat-input');
+    var text = input.value.trim();
+    if (!text) return false;
+
+    var messages = JSON.parse(sessionStorage.getItem('brainstorm_messages') || '[]');
+    messages.push({role: 'user', content: text});
+
+    var chat = document.getElementById('chat-messages');
+    var userHtml = '<div style="display:flex;justify-content:flex-end;"><div style="max-width:70%;background:var(--accent-light);color:var(--text);border-radius:16px 16px 4px 16px;padding:0.75rem 1rem;font-size:0.875rem;line-height:1.6;white-space:pre-wrap;">' + escapeHtml(text) + '</div></div>';
+    chat.insertAdjacentHTML('beforeend', userHtml);
+
+    var thinkingId = 'thinking-' + Date.now();
+    chat.insertAdjacentHTML('beforeend', '<div id="' + thinkingId + '" style="display:flex;justify-content:flex-start;"><div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:0.75rem 1rem;font-size:0.875rem;color:var(--text-tertiary);">思考中...</div></div>');
+    scrollToBottom();
+
+    input.value = '';
+    input.style.height = 'auto';
+    document.getElementById('send-btn').disabled = true;
+
+    var projectId = document.getElementById('project-select').value;
+
+    fetch('/brainstorm/chat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({messages: messages, project_id: projectId || null}),
+    })
+    .then(function(r) { return r.text(); })
+    .then(function(html) {
+        document.getElementById(thinkingId).remove();
+        chat.insertAdjacentHTML('beforeend', html);
+        messages.push({role: 'assistant', content: extractContent(html)});
+        sessionStorage.setItem('brainstorm_messages', JSON.stringify(messages));
+        // Show save bar
+        document.getElementById('save-bar').style.display = 'flex';
+        scrollToBottom();
+    })
+    .catch(function() {
+        document.getElementById(thinkingId).innerHTML = '<span style="color:#c0392b;">请求失败，请重试</span>';
+    })
+    .finally(function() {
+        document.getElementById('send-btn').disabled = false;
+    });
+
+    return false;
+}
+
+function extractContent(html) {
+    var div = document.createElement('div');
+    div.innerHTML = html;
+    var contentDiv = div.querySelector('.brainstorm-content');
+    return contentDiv ? contentDiv.textContent.trim() : div.textContent.trim();
+}
+
+function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>

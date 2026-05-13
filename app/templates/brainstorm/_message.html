@@ -1,0 +1,13 @@
+{% if msg.role == "user" %}
+<div style="display: flex; justify-content: flex-end;">
+    <div style="max-width: 70%; background: var(--accent-light); color: var(--text); border-radius: 16px 16px 4px 16px; padding: 0.75rem 1rem; font-size: 0.875rem; line-height: 1.6; white-space: pre-wrap;">
+        {{ msg.content }}
+    </div>
+</div>
+{% else %}
+<div style="display: flex; justify-content: flex-start;">
+    <div style="max-width: 75%; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px 16px 16px 4px; padding: 0.875rem 1rem; font-size: 0.875rem; line-height: 1.7; color: var(--text);">
+        <div class="brainstorm-content">{{ msg.content }}</div>
+    </div>
+</div>
+{% endif %}

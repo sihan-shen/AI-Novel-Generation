@@ -1,0 +1,10 @@
+<div style="text-align: center; padding: 2rem 1rem;">
+    <div style="font-size: 2rem; margin-bottom: 0.5rem;">✅</div>
+    <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem;">保存成功</h3>
+    <div style="font-size: 0.8125rem; color: var(--text-secondary);">
+        <p>已添加 {{ saved.settings }} 个设定条目</p>
+        <p>已添加 {{ saved.outlines }} 个大纲节点</p>
+        <p>已保存 {{ saved.ideas }} 份对话记录</p>
+    </div>
+    <button onclick="this.closest('.modal-overlay').remove()" class="btn btn-ghost" style="margin-top: 1rem;">完成</button>
+</div>
