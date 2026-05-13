@@ -38,23 +38,25 @@
 <div class="mb-4">
     <div class="flex items-center justify-between mb-1">
         <label class="block text-sm font-medium text-gray-700">模型</label>
-        <button type="button" id="fetch-models-btn" style="display:none"
-                hx-get="/config/fetch-models" hx-target="#model-list"
-                class="text-xs text-primary-600 hover:text-primary-700 border border-primary-200 px-2 py-0.5 rounded">
-            从 API 获取列表
-        </button>
+        <div class="flex gap-1">
+            <button type="button" id="fetch-models-btn" style="display:none"
+                    hx-get="/config/fetch-models" hx-target="#model-list"
+                    class="text-xs text-primary-600 hover:text-primary-700 border border-primary-200 px-2 py-0.5 rounded">
+                从 API 获取列表
+            </button>
+        </div>
     </div>
     <div id="model-list">
-        <select name="model" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+        <input type="text" name="model" id="model-input" value="{{ cfg.model }}" list="model-suggestions" autocomplete="off"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500"
+               placeholder="输入或选择一个模型">
+        <datalist id="model-suggestions">
             {% for m in providers[cfg.llm_provider].preset_models %}
-            <option value="{{ m }}" {% if cfg.model == m %}selected{% endif %}>{{ m }}</option>
+            <option value="{{ m }}">{{ m }}</option>
             {% endfor %}
-        </select>
+        </datalist>
     </div>
-</div>
-
-<div id="no-models-msg" class="text-xs text-gray-400 mb-4" style="display:none">
-    此提供商无预设模型，请点击上方"从 API 获取列表"
+    <p class="text-xs text-gray-400 mt-1">可直接输入自定义模型名称</p>
 </div>
 
 <div class="border-t pt-4 flex justify-end">
@@ -83,11 +85,5 @@ function onProviderChange(pid) {
     }
 
     document.getElementById('fetch-models-btn').style.display = hasList ? '' : 'none';
-
-    if (opt.dataset.hasList === 'true') {
-        document.getElementById('no-models-msg').style.display = opt.dataset.presets === '[]' ? '' : 'none';
-    } else {
-        document.getElementById('no-models-msg').style.display = 'none';
-    }
 }
 </script>

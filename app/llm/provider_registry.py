@@ -43,6 +43,12 @@ PROVIDERS: dict[str, ProviderInfo] = {
         preset_models=["gemini-2.5-flash", "gemini-2.5-pro"],
         default_model="gemini-2.5-flash", api_key_label="Gemini API Key",
     ),
+    "deepseek": ProviderInfo(
+        id="deepseek", label="DeepSeek", has_model_list_api=False,
+        needs_api_key=True, needs_base_url=False,
+        preset_models=["deepseek-chat", "deepseek-reasoner"],
+        default_model="deepseek-chat", api_key_label="DeepSeek API Key",
+    ),
     "custom": ProviderInfo(
         id="custom", label="自定义 (OpenAI 兼容)", has_model_list_api=True,
         needs_api_key=True, needs_base_url=True,

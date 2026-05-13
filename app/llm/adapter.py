@@ -54,8 +54,11 @@ def get_adapter(db: Any = None) -> LLMAdapter:
         return OpenAIAdapter(api_key="ollama", model=model, base_url=base)
     elif provider == "gemini":
         from app.llm.openai_adapter import OpenAIAdapter
-        base = f"https://generativelanguage.googleapis.com/v1beta/openai/"
+        base = "https://generativelanguage.googleapis.com/v1beta/openai/"
         return OpenAIAdapter(api_key=api_key, model=model, base_url=base)
+    elif provider == "deepseek":
+        from app.llm.openai_adapter import OpenAIAdapter
+        return OpenAIAdapter(api_key=api_key, model=model, base_url="https://api.deepseek.com/v1")
     elif provider == "custom":
         from app.llm.openai_adapter import OpenAIAdapter
         return OpenAIAdapter(api_key=api_key, model=model, base_url=base_url)

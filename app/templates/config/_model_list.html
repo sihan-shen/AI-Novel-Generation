@@ -1,8 +1,11 @@
-<select name="model" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+<input type="text" name="model" id="model-input" value="{{ current }}" list="model-suggestions" autocomplete="off"
+       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500"
+       placeholder="输入或选择一个模型">
+<datalist id="model-suggestions">
     {% for m in models %}
-    <option value="{{ m }}" {% if current == m %}selected{% endif %}>{{ m }}</option>
+    <option value="{{ m }}">{{ m }}</option>
     {% endfor %}
-</select>
+</datalist>
 {% if not models %}
-<p class="text-xs text-red-400 mt-1">未获取到模型列表</p>
+<p class="text-xs text-red-400 mt-1">未获取到模型列表，可手动输入模型名称</p>
 {% endif %}
