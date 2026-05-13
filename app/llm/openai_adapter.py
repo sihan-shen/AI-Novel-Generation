@@ -3,9 +3,12 @@ from app.llm.adapter import LLMAdapter, LLMResponse
 
 
 class OpenAIAdapter(LLMAdapter):
-    def __init__(self, api_key: str, model: str = "gpt-4o"):
+    def __init__(self, api_key: str, model: str = "gpt-4o", base_url: str | None = None):
         self.model = model
-        self.client = AsyncOpenAI(api_key=api_key) if api_key else None
+        kwargs = {"api_key": api_key}
+        if base_url:
+            kwargs["base_url"] = base_url
+        self.client = AsyncOpenAI(**kwargs) if api_key else None
 
     async def generate(self, messages: list[dict], **kwargs) -> LLMResponse:
         if not self.client:

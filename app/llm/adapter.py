@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from typing import Any
-from datetime import datetime
 
 
 class LLMResponse:
@@ -23,37 +22,47 @@ def get_adapter(db: Any = None) -> LLMAdapter:
     from app.config import settings
 
     provider = settings.llm_provider
-    claude_key = settings.claude_api_key
-    openai_key = settings.openai_api_key
-    claude_model = "claude-sonnet-4-6"
-    openai_model = "gpt-4o"
+    api_key = ""
+    base_url = ""
+    model = ""
 
-    # DB config overrides .env when available
     if db is not None:
         from app.services.config_service import ConfigService
         cfg = ConfigService.get_all(db)
-        if cfg.get("llm_provider"):
-            provider = cfg["llm_provider"]
-        if cfg.get("claude_api_key"):
-            claude_key = cfg["claude_api_key"]
-        if cfg.get("openai_api_key"):
-            openai_key = cfg["openai_api_key"]
-        if cfg.get("claude_model"):
-            claude_model = cfg["claude_model"]
-        if cfg.get("openai_model"):
-            openai_model = cfg["openai_model"]
+        provider = cfg.get("llm_provider", provider)
+        api_key = cfg.get("api_key", "")
+        base_url = cfg.get("base_url", "")
+        model = cfg.get("model", "")
+    else:
+        api_key = settings.claude_api_key or settings.openai_api_key
+        model = "claude-sonnet-4-6"
+
+    if not model:
+        from app.llm.provider_registry import PROVIDERS
+        info = PROVIDERS.get(provider)
+        model = info.default_model if info else ""
 
     if provider == "claude":
         from app.llm.claude_adapter import ClaudeAdapter
-        return ClaudeAdapter(api_key=claude_key, model=claude_model)
+        return ClaudeAdapter(api_key=api_key or settings.claude_api_key, model=model)
     elif provider == "openai":
         from app.llm.openai_adapter import OpenAIAdapter
-        return OpenAIAdapter(api_key=openai_key, model=openai_model)
+        return OpenAIAdapter(api_key=api_key or settings.openai_api_key, model=model)
+    elif provider == "ollama":
+        from app.llm.openai_adapter import OpenAIAdapter
+        base = (base_url or "http://localhost:11434").rstrip("/") + "/v1"
+        return OpenAIAdapter(api_key="ollama", model=model, base_url=base)
+    elif provider == "gemini":
+        from app.llm.openai_adapter import OpenAIAdapter
+        base = f"https://generativelanguage.googleapis.com/v1beta/openai/"
+        return OpenAIAdapter(api_key=api_key, model=model, base_url=base)
+    elif provider == "custom":
+        from app.llm.openai_adapter import OpenAIAdapter
+        return OpenAIAdapter(api_key=api_key, model=model, base_url=base_url)
     raise ValueError(f"Unknown LLM provider: {provider}")
 
 
 def record_usage(db: Any, model: str, usage: dict, scenario: str = ""):
-    """Record token usage to database."""
     from app.models.token_usage import TokenUsage
     if not usage:
         return

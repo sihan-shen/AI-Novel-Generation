@@ -4,45 +4,57 @@
 
 <div class="mb-4">
     <label class="block text-sm font-medium text-gray-700 mb-1">LLM 提供商</label>
-    <select name="llm_provider"
+    <select name="llm_provider" id="provider-select" onchange="onProviderChange(this.value)"
             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
-        <option value="claude" {% if cfg.llm_provider == 'claude' %}selected{% endif %}>Claude (Anthropic)</option>
-        <option value="openai" {% if cfg.llm_provider == 'openai' %}selected{% endif %}>OpenAI</option>
+        {% for pid, info in providers.items() %}
+        <option value="{{ pid }}" {% if cfg.llm_provider == pid %}selected{% endif %}
+                data-has-key="{{ 'true' if info.needs_api_key else 'false' }}"
+                data-has-url="{{ 'true' if info.needs_base_url else 'false' }}"
+                data-has-list="{{ 'true' if info.has_model_list_api else 'false' }}"
+                data-key-label="{{ info.api_key_label }}"
+                data-url-label="{{ info.base_url_label }}"
+                data-url-placeholder="{{ info.base_url_placeholder }}">
+            {{ info.label }}
+        </option>
+        {% endfor %}
     </select>
 </div>
 
-<div class="mb-4">
-    <label class="block text-sm font-medium text-gray-700 mb-1">Claude API Key</label>
-    <input type="password" name="claude_api_key" value="{{ cfg.claude_api_key }}"
+<div id="api-key-area" class="mb-4">
+    <label class="block text-sm font-medium text-gray-700 mb-1" id="api-key-label">API Key</label>
+    <input type="password" name="api_key" value="{{ cfg.api_key }}"
            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500"
-           placeholder="sk-ant-...">
-    <p class="text-xs text-gray-400 mt-1">留空则使用 .env 中的值</p>
+           placeholder="输入 API Key">
+    <p class="text-xs text-gray-400 mt-1">留空则使用 .env 中的值（如有）</p>
 </div>
 
-<div class="mb-4">
-    <label class="block text-sm font-medium text-gray-700 mb-1">Claude 模型</label>
-    <select name="claude_model"
-            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
-        <option value="claude-sonnet-4-6" {% if cfg.claude_model == 'claude-sonnet-4-6' %}selected{% endif %}>Claude Sonnet 4.6</option>
-        <option value="claude-opus-4-7" {% if cfg.claude_model == 'claude-opus-4-7' %}selected{% endif %}>Claude Opus 4.7</option>
-        <option value="claude-haiku-4-5-20251001" {% if cfg.claude_model == 'claude-haiku-4-5-20251001' %}selected{% endif %}>Claude Haiku 4.5</option>
-    </select>
-</div>
-
-<div class="mb-4">
-    <label class="block text-sm font-medium text-gray-700 mb-1">OpenAI API Key</label>
-    <input type="password" name="openai_api_key" value="{{ cfg.openai_api_key }}"
+<div id="base-url-area" class="mb-4"{% if cfg.llm_provider not in ('ollama', 'custom') %} style="display:none"{% endif %}>
+    <label class="block text-sm font-medium text-gray-700 mb-1" id="base-url-label">API 地址</label>
+    <input type="text" name="base_url" value="{{ cfg.base_url }}"
            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500"
-           placeholder="sk-...">
+           placeholder="" id="base-url-input">
 </div>
 
 <div class="mb-4">
-    <label class="block text-sm font-medium text-gray-700 mb-1">OpenAI 模型</label>
-    <select name="openai_model"
-            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
-        <option value="gpt-4o" {% if cfg.openai_model == 'gpt-4o' %}selected{% endif %}>GPT-4o</option>
-        <option value="gpt-4o-mini" {% if cfg.openai_model == 'gpt-4o-mini' %}selected{% endif %}>GPT-4o Mini</option>
-    </select>
+    <div class="flex items-center justify-between mb-1">
+        <label class="block text-sm font-medium text-gray-700">模型</label>
+        <button type="button" id="fetch-models-btn" style="display:none"
+                hx-get="/config/fetch-models" hx-target="#model-list"
+                class="text-xs text-primary-600 hover:text-primary-700 border border-primary-200 px-2 py-0.5 rounded">
+            从 API 获取列表
+        </button>
+    </div>
+    <div id="model-list">
+        <select name="model" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+            {% for m in providers[cfg.llm_provider].preset_models %}
+            <option value="{{ m }}" {% if cfg.model == m %}selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<div id="no-models-msg" class="text-xs text-gray-400 mb-4" style="display:none">
+    此提供商无预设模型，请点击上方"从 API 获取列表"
 </div>
 
 <div class="border-t pt-4 flex justify-end">
@@ -50,3 +62,32 @@
         保存配置
     </button>
 </div>
+
+<script>
+function onProviderChange(pid) {
+    var opt = document.querySelector('#provider-select option[value="' + pid + '"]');
+    var hasKey = opt.dataset.hasKey === 'true';
+    var hasUrl = opt.dataset.hasUrl === 'true';
+    var hasList = opt.dataset.hasList === 'true';
+    var keyLabel = opt.dataset.keyLabel;
+    var urlLabel = opt.dataset.urlLabel;
+    var urlPlaceholder = opt.dataset.urlPlaceholder;
+
+    document.getElementById('api-key-area').style.display = hasKey ? '' : 'none';
+    document.getElementById('api-key-label').textContent = keyLabel;
+
+    document.getElementById('base-url-area').style.display = hasUrl ? '' : 'none';
+    if (hasUrl) {
+        document.getElementById('base-url-label').textContent = urlLabel;
+        document.getElementById('base-url-input').placeholder = urlPlaceholder;
+    }
+
+    document.getElementById('fetch-models-btn').style.display = hasList ? '' : 'none';
+
+    if (opt.dataset.hasList === 'true') {
+        document.getElementById('no-models-msg').style.display = opt.dataset.presets === '[]' ? '' : 'none';
+    } else {
+        document.getElementById('no-models-msg').style.display = 'none';
+    }
+}
+</script>

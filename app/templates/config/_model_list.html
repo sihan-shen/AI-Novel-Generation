@@ -1,0 +1,8 @@
+<select name="model" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+    {% for m in models %}
+    <option value="{{ m }}" {% if current == m %}selected{% endif %}>{{ m }}</option>
+    {% endfor %}
+</select>
+{% if not models %}
+<p class="text-xs text-red-400 mt-1">未获取到模型列表</p>
+{% endif %}

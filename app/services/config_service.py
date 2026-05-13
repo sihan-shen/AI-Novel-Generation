@@ -5,10 +5,9 @@ from app.models.config import Config
 class ConfigService:
     DEFAULTS = {
         "llm_provider": "claude",
-        "claude_api_key": "",
-        "openai_api_key": "",
-        "claude_model": "claude-sonnet-4-6",
-        "openai_model": "gpt-4o",
+        "api_key": "",
+        "base_url": "",
+        "model": "claude-sonnet-4-6",
     }
 
     @staticmethod
