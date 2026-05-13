@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from app.database import init_db
-from app.routers import projects, outlines, settings, chapters, brainstorming, styles, reviews, ideas
+from app.routers import projects, outlines, settings, chapters, brainstorming, styles, reviews, ideas, config
 
 app = FastAPI(title="AI Novel Generation Tool")
 app.include_router(projects.router)
@@ -16,6 +16,7 @@ app.include_router(brainstorming.router)
 app.include_router(styles.router)
 app.include_router(reviews.router)
 app.include_router(ideas.router)
+app.include_router(config.router)
 
 BASE_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -30,6 +31,12 @@ def on_startup():
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     return templates.TemplateResponse(request, "dashboard.html", {"request": request})
+
+
+def start():
+    """Entry point for `novel-forge` CLI command."""
+    import uvicorn
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000)
 
 
 if __name__ == "__main__":

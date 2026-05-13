@@ -7,7 +7,7 @@ class BrainstormService:
     @staticmethod
     async def brainstorm(db: Session, project_id: str | None, mode: str, query: str) -> str:
         """Execute a brainstorming session."""
-        adapter = get_adapter()
+        adapter = get_adapter(db)
 
         if mode == "free":
             messages = [

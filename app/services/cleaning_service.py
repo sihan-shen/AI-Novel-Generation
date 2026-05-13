@@ -53,7 +53,7 @@ class CleaningService:
 
         context = "\n".join(context_lines)
 
-        adapter = get_adapter()
+        adapter = get_adapter(db)
         messages = [
             {"role": "system", "content": "你是设定集管理员。检查设定条目间的矛盾、重复、逻辑问题。"},
             {"role": "user", "content": f"设定集：\n{context}\n\n检查逻辑矛盾和重复条目，输出JSON格式：{{\"contradictions\":[{{\"items\":[\"名称A\",\"名称B\"],\"issue\":\"...\",\"suggestion\":\"...\"}}],\"duplicates\":[{{\"items\":[\"名称A\",\"名称B\"],\"reason\":\"...\"}}]}}"}

@@ -29,11 +29,11 @@ async def import_form(request: Request):
 
 
 @router.post("/analyze-slices")
-async def analyze_slices(request: Request):
+async def analyze_slices(request: Request, db: Session = Depends(get_db)):
     form = await request.form()
     text = form.get("text", "")
     name = form.get("name", "未命名文风")
-    slices = await StyleService.smart_slice(text)
+    slices = await StyleService.smart_slice(db, text)
     return templates.TemplateResponse(request, "styles/_slices.html", {
         "slices": slices, "full_text": text, "name": name,
     })
@@ -45,7 +45,7 @@ async def confirm_import(request: Request, db: Session = Depends(get_db)):
     name = form.get("name", "未命名文风")
     source_text = form.get("source_text", "")
     selected = form.get("selected_text", source_text[:500])
-    analysis = await StyleService.analyze_text(selected)
+    analysis = await StyleService.analyze_text(db, selected)
     StyleService.create(db, name=name, source="智能导入", source_text=source_text, analysis=analysis)
     styles = StyleService.list_all(db)
     return templates.TemplateResponse(request, "styles/_list.html", {"styles": styles})

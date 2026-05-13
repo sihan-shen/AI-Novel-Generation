@@ -39,7 +39,7 @@ class ReviewService:
         """Run full review on a chapter."""
         builder = ContextBuilder(db)
         messages = builder.build("review", chapter.project_id, request=chapter.content[:3000])
-        adapter = get_adapter()
+        adapter = get_adapter(db)
         response = await adapter.generate(messages, temperature=0.3, max_tokens=2048)
         from app.llm.adapter import record_usage
         record_usage(db, adapter.model, response.usage, scenario="review")
