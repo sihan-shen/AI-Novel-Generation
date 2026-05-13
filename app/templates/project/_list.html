@@ -1,24 +1,33 @@
 {% for project in projects %}
-<div class="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow">
-    <div class="flex items-start justify-between">
-        <div>
-            <a href="/projects/{{ project.id }}" class="text-lg font-semibold text-primary-700 hover:underline">{{ project.title }}</a>
-            {% if project.genre %}<span class="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{{ project.genre }}</span>{% endif %}
+<div class="card animate-in animate-in-{{ loop.index if loop.index <= 4 else 4 }}" style="padding: 1.25rem;">
+    <div style="display: flex; align-items: flex-start; justify-content: space-between;">
+        <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+                <a href="/projects/{{ project.id }}" style="font-size: 1.05rem; font-weight: 600; color: var(--text); text-decoration: none; transition: color 0.2s;"
+                   onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text)'">
+                    {{ project.title }}
+                </a>
+                {% if project.genre %}<span class="badge">{{ project.genre }}</span>{% endif %}
+            </div>
+            {% if project.description %}
+            <p style="font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                {{ project.description }}
+            </p>
+            {% endif %}
         </div>
-        <button hx-delete="/projects/{{ project.id }}" hx-target="#project-list" hx-confirm="删除该项目？"
-                class="text-gray-400 hover:text-red-500 text-sm">✕</button>
+        <button hx-delete="/projects/{{ project.id }}" hx-target="#project-list" hx-confirm="删除「{{ project.title }}」？"
+                style="background: none; border: none; cursor: pointer; color: var(--text-tertiary); font-size: 0.875rem; padding: 0.25rem; transition: color 0.2s; flex-shrink: 0; margin-left: 0.75rem;"
+                onmouseover="this.style.color='#c0392b'" onmouseout="this.style.color=''">✕</button>
     </div>
-    {% if project.description %}
-    <p class="text-sm text-gray-500 mt-2 line-clamp-2">{{ project.description }}</p>
-    {% endif %}
-    <div class="flex items-center justify-between mt-4 text-xs text-gray-400">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 1rem; font-size: 0.75rem; color: var(--text-tertiary);">
         <span>{{ project.created_at.strftime('%Y-%m-%d') }}</span>
-        <span>{{ project.status }}</span>
+        <span style="text-transform: capitalize;">{{ project.status }}</span>
     </div>
 </div>
 {% else %}
-<div class="col-span-full text-center py-12 text-gray-400">
-    <p class="text-lg">还没有项目</p>
-    <p class="mt-1">点击右上角"新建项目"开始</p>
+<div style="grid-column: 1 / -1; text-align: center; padding: 4rem 2rem; animation: slideUp 0.3s ease;">
+    <div style="font-size: 3rem; opacity: 0.2; margin-bottom: 1rem;">✎</div>
+    <p style="font-size: 1.125rem; color: var(--text-secondary); font-weight: 500;">还没有项目</p>
+    <p style="font-size: 0.875rem; color: var(--text-tertiary); margin-top: 0.5rem;">点击右上角「新建项目」开始你的第一部小说</p>
 </div>
 {% endfor %}

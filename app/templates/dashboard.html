@@ -1,15 +1,20 @@
 {% extends "base.html" %}
-{% block title %}项目列表 - Novel Forge{% endblock %}
+{% block title %}项目 - Novel Forge{% endblock %}
 {% block content %}
-<div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold">我的项目</h1>
-    <button hx-get="/projects/new" hx-target="body" hx-swap="beforeend"
-            class="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 text-sm">
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; animation: slideUp 0.3s ease;">
+    <div>
+        <h1 style="font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; color: var(--text);">我的项目</h1>
+        <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem;">继续你的创作</p>
+    </div>
+    <button class="btn btn-primary" hx-get="/projects/new" hx-target="body" hx-swap="beforeend">
         + 新建项目
     </button>
 </div>
+
 <div id="project-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
      hx-get="/projects/list" hx-trigger="load" hx-swap="innerHTML">
-    <div class="col-span-full text-center py-12 text-gray-400">加载中...</div>
+    <div style="grid-column: 1 / -1; text-align: center; padding: 3rem 0;">
+        <div style="color: var(--text-tertiary); font-size: 0.875rem;">加载中...</div>
+    </div>
 </div>
 {% endblock %}

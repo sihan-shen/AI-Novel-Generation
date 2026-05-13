@@ -1,32 +1,35 @@
-<div id="modal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-    <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-xl" onclick="event.stopPropagation()">
-        <h2 class="text-lg font-bold mb-4">{% if is_edit %}编辑{% else %}添加{% endif %}设定条目</h2>
+<div class="modal-overlay">
+    <div class="modal-content" style="width: 100%; max-width: 480px; padding: 1.5rem;" onclick="event.stopPropagation()">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
+            <h2 style="font-size: 1.125rem; font-weight: 700;">{% if is_edit %}编辑{% else %}添加{% endif %}设定条目</h2>
+            <button type="button" onclick="this.closest('.modal-overlay').remove()"
+                    style="background: none; border: none; cursor: pointer; color: var(--text-tertiary); font-size: 1.25rem; padding: 0.25rem;">✕</button>
+        </div>
         <form hx-post="{{ post_url }}" hx-target="#settings-list" hx-swap="innerHTML">
             <input type="hidden" name="category" value="{{ category }}">
-            <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">名称 *</label>
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.375rem;">名称 *</label>
                 <input type="text" name="name" value="{{ item.name if item else '' }}" required
-                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                       style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.875rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text);">
             </div>
-            <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">概要</label>
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.375rem;">概要</label>
                 <input type="text" name="summary" value="{{ item.summary if item else '' }}"
-                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                       style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.875rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text);">
             </div>
-            <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">重要度 (1-10)</label>
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.375rem;">重要度 (1-10)</label>
                 <input type="number" name="weight" value="{{ item.weight if item else 5 }}" min="1" max="10"
-                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                       style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.875rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text);">
             </div>
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1">详细描述</label>
+            <div style="margin-bottom: 1.25rem;">
+                <label style="display: block; font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.375rem;">详细描述</label>
                 <textarea name="content" rows="5"
-                          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">{{ item.content if item else '' }}</textarea>
+                          style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.875rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); resize: vertical;">{{ item.content if item else '' }}</textarea>
             </div>
-            <div class="flex justify-end gap-2">
-                <button type="button" onclick="this.closest('#modal').remove()"
-                        class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">取消</button>
-                <button type="submit" class="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700">保存</button>
+            <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+                <button type="button" onclick="this.closest('.modal-overlay').remove()" class="btn btn-ghost">取消</button>
+                <button type="submit" class="btn btn-primary">保存</button>
             </div>
         </form>
     </div>
