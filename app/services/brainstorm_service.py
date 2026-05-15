@@ -51,7 +51,7 @@ class BrainstormService:
                 conv_text += f"\n助手: {m['content']}\n"
 
         extraction_messages = [
-            {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},
+            {"role": "system", "content": BrainstormService.EXTRACTION_SYSTEM_PROMPT},
             {"role": "user", "content": f"以下是一段头脑风暴对话，请提取其中的创作素材：\n\n{conv_text[:8000]}"}
         ]
         response = await adapter.generate(extraction_messages, temperature=0.3, max_tokens=2048)

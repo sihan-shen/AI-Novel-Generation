@@ -26,6 +26,10 @@ function outlineDrop(e, projectId) {
     });
 }
 </script>
+<style>
+.outline-item .item-actions { opacity: 0; transition: opacity 0.15s; }
+.outline-item:hover .item-actions { opacity: 1; }
+</style>
 
 <div id="outline-items">
 {% macro render_item(item, depth=0, project_id='') %}
@@ -44,8 +48,7 @@ function outlineDrop(e, projectId) {
         {% endif %}
     </div>
     <span style="font-size:0.6875rem;color:var(--text-tertiary);">{{ item.status }}</span>
-    <div style="display:flex;gap:0.25rem;opacity:0;transition:opacity 0.2s;" class="item-actions"
-         onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0'">
+    <div class="item-actions" style="display:flex;gap:0.25rem;">
         <button hx-get="/project/{{ project_id }}/outline/new-item?parent_id={{ item.id }}&level={{ item.level + 1 }}"
                 hx-target="body" hx-swap="beforeend"
                 style="background:none;border:none;cursor:pointer;color:var(--text-tertiary);font-size:0.75rem;padding:0.25rem;">+子</button>
