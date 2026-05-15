@@ -52,6 +52,7 @@ async def reorder_ideas(request: Request, db: Session = Depends(get_db)):
 
 
 @router.delete("/{idea_id}")
-async def delete_idea(idea_id: str, db: Session = Depends(get_db)):
+async def delete_idea(idea_id: str, request: Request, db: Session = Depends(get_db)):
     IdeaService.delete(db, idea_id)
-    return HTMLResponse("ok")
+    ideas = IdeaService.list_by_project(db)
+    return templates.TemplateResponse(request, "ideas/_list.html", {"ideas": ideas})
