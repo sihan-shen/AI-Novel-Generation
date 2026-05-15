@@ -10,16 +10,23 @@
                onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color=''">← 返回项目</a>
             <h1 class="heading-xl" style="margin: 0;">{{ project.title }} — 大纲</h1>
         </div>
-        <div class="page-header-actions">
+        <div class="page-header-actions" style="display: flex; gap: 0.5rem;">
+            <button hx-get="/project/{{ project.id }}/outline/generate"
+                    hx-target="body" hx-swap="beforeend"
+                    class="btn btn-primary" style="background: linear-gradient(135deg, var(--accent), #d4955a);">
+                ✦ AI 生成大纲
+            </button>
             <button hx-get="/project/{{ project.id }}/outline/new-item"
                     hx-target="#outline-form-container" hx-swap="innerHTML"
-                    class="btn btn-primary">
-                + 添加章节
+                    class="btn btn-ghost">
+                + 手动添加
             </button>
         </div>
     </div>
 
     <div id="outline-form-container"></div>
+
+    <div id="generation-result"></div>
 
     <div id="outline-tree" class="card" style="padding: 1rem;"
          hx-get="/project/{{ project.id }}/outline/tree" hx-trigger="load" hx-swap="innerHTML">
