@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.models.setting import Setting, SettingRelation
 from app.models.chapter import ChapterSettingLink
 from app.llm.adapter import get_adapter
+from app.llm.prompts.loader import load as load_prompt
 
 
 class CleaningService:
@@ -55,7 +56,7 @@ class CleaningService:
 
         adapter = get_adapter(db)
         messages = [
-            {"role": "system", "content": "你是设定集管理员。检查设定条目间的矛盾、重复、逻辑问题。"},
+            {"role": "system", "content": load_prompt("cleaning_consistency")},
             {"role": "user", "content": f"设定集：\n{context}\n\n检查逻辑矛盾和重复条目，输出JSON格式：{{\"contradictions\":[{{\"items\":[\"名称A\",\"名称B\"],\"issue\":\"...\",\"suggestion\":\"...\"}}],\"duplicates\":[{{\"items\":[\"名称A\",\"名称B\"],\"reason\":\"...\"}}]}}"}
         ]
         response = await adapter.generate(messages, temperature=0.3)
