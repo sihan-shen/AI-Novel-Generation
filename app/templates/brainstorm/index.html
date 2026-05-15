@@ -81,5 +81,45 @@ function triggerExtract() {
         document.body.insertAdjacentHTML('beforeend', html);
     });
 }
+
+function confirmSave() {
+    var form = document.getElementById('save-form');
+    if (!form) return;
+    // data is injected by Jinja2 tojson filter as a JS variable
+    var dataElement = document.getElementById('extract-data');
+    if (!dataElement) return;
+    var data = JSON.parse(dataElement.textContent);
+    var selected = {settings: [], outlines: [], ideas: []};
+
+    form.querySelectorAll('input[name="settings"]:checked').forEach(function(cb) {
+        selected.settings.push(data.settings[parseInt(cb.value)]);
+    });
+    form.querySelectorAll('input[name="outlines"]:checked').forEach(function(cb) {
+        selected.outlines.push(data.outlines[parseInt(cb.value)]);
+    });
+    form.querySelectorAll('input[name="ideas"]:checked').forEach(function(cb) {
+        selected.ideas.push(data.ideas[parseInt(cb.value)]);
+    });
+
+    var projectId = document.getElementById('extract-project-id').textContent;
+    var messages = JSON.parse(sessionStorage.getItem('brainstorm_messages') || '[]');
+
+    fetch('/brainstorm/confirm-save', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            project_id: projectId,
+            data: selected,
+            messages: messages,
+        }),
+    })
+    .then(function(r) { return r.text(); })
+    .then(function(html) {
+        document.getElementById('extract-modal').innerHTML = html;
+        if (typeof htmx !== 'undefined') {
+            htmx.trigger('#history-sidebar', 'load');
+        }
+    });
+}
 </script>
 {% endblock %}

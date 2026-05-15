@@ -2,7 +2,7 @@
     <div class="modal-content" style="width: 100%; max-width: 540px; padding: 1.75rem; max-height: 80vh; overflow-y: auto;" onclick="event.stopPropagation()">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
             <h2 class="heading" style="margin: 0;">📋 保存到项目</h2>
-            <button onclick="this.closest('.modal-overlay').remove()" class="btn-icon">✕</button>
+            <button class="btn-icon" onclick="this.closest('.modal-overlay').remove()">✕</button>
         </div>
 
         {% set total = result.settings|length + result.outlines|length + result.ideas|length %}
@@ -35,7 +35,7 @@
                 <h3 class="subheading" style="margin-bottom: 0.625rem;">大纲节点 ({{ result.outlines|length }})</h3>
                 <div style="display: flex; flex-direction: column; gap: 0.375rem;">
                     {% for o in result.outlines %}
-                    <label style="display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.625rem; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 0.8125rem; transition: border-color var(--transition);"
+                    <label style="display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.625rem; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 0.8125rem;"
                            onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor=''">
                         <input type="checkbox" name="outlines" value="{{ loop.index0 }}" checked style="margin-top: 0.1875rem; accent-color: var(--accent);">
                         <div>
@@ -53,7 +53,7 @@
                 <h3 class="subheading" style="margin-bottom: 0.625rem;">灵感 ({{ result.ideas|length }})</h3>
                 <div style="display: flex; flex-direction: column; gap: 0.375rem;">
                     {% for idea in result.ideas %}
-                    <label style="display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.625rem; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 0.8125rem; transition: border-color var(--transition);"
+                    <label style="display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.625rem; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 0.8125rem;"
                            onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor=''">
                         <input type="checkbox" name="ideas" value="{{ loop.index0 }}" checked style="margin-top: 0.1875rem; accent-color: var(--accent);">
                         <div>
@@ -68,49 +68,14 @@
         </form>
         {% endif %}
 
-        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; border-top: 1px solid var(--border); padding-top: 1.125rem; margin-top: 0.25rem;">
             <button onclick="this.closest('.modal-overlay').remove()" class="btn btn-ghost">取消</button>
             {% if total > 0 %}
             <button onclick="confirmSave()" class="btn btn-primary">确认保存</button>
             {% endif %}
         </div>
     </div>
+    <!-- Data for confirmSave() in index.html -->
+    <script id="extract-data" type="application/json">{{ result | tojson }}</script>
+    <span id="extract-project-id" style="display:none">{{ project_id }}</span>
 </div>
-
-<script>
-function confirmSave() {
-    var form = document.getElementById('save-form');
-    if (!form) return;
-    var data = {{ result | tojson | safe }};
-    var selected = {settings: [], outlines: [], ideas: []};
-
-    form.querySelectorAll('input[name="settings"]:checked').forEach(function(cb) {
-        selected.settings.push(data.settings[parseInt(cb.value)]);
-    });
-    form.querySelectorAll('input[name="outlines"]:checked').forEach(function(cb) {
-        selected.outlines.push(data.outlines[parseInt(cb.value)]);
-    });
-    form.querySelectorAll('input[name="ideas"]:checked').forEach(function(cb) {
-        selected.ideas.push(data.ideas[parseInt(cb.value)]);
-    });
-
-    var messages = JSON.parse(sessionStorage.getItem('brainstorm_messages') || '[]');
-
-    fetch('/brainstorm/confirm-save', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            project_id: '{{ project_id }}',
-            data: selected,
-            messages: messages,
-        }),
-    })
-    .then(function(r) { return r.text(); })
-    .then(function(html) {
-        document.getElementById('extract-modal').innerHTML = html;
-        if (typeof htmx !== 'undefined') {
-            htmx.trigger('#history-sidebar', 'load');
-        }
-    });
-}
-</script>
