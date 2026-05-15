@@ -25,6 +25,50 @@ function outlineDrop(e, projectId) {
         body: JSON.stringify({items: order}),
     });
 }
+
+function generateLevel(projectId, parentId, level, title, summary) {
+    var endpoint = level === 2 ? 'chapters' : 'sections';
+    var label = level === 2 ? '章节' : '细纲';
+    var resultDiv = document.getElementById('generation-result');
+    resultDiv.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text-secondary);">正在生成' + label + '...</div>';
+
+    window._genContext = {level: level, parentId: parentId};
+
+    fetch('/project/' + projectId + '/outline/generate/' + endpoint, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({volume_title: title, volume_summary: summary, chapter_title: title, chapter_summary: summary}),
+    })
+    .then(function(r) {
+        var reader = r.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = '', full = '';
+        function read() {
+            return reader.read().then(function(result) {
+                if (result.done) {
+                    renderGenerationResult(projectId, full, level);
+                    return;
+                }
+                buffer += decoder.decode(result.value, {stream: true});
+                var lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                for (var i = 0; i < lines.length; i++) {
+                    var l = lines[i].trim();
+                    if (l.startsWith('data: ')) {
+                        var d = l.slice(6);
+                        if (d === '[DONE]') continue;
+                        try {
+                            var p = JSON.parse(d);
+                            if (p.content) full += p.content;
+                        } catch(e) {}
+                    }
+                }
+                return read();
+            });
+        }
+        return read();
+    });
+}
 </script>
 <style>
 .outline-item .item-actions { opacity: 0; transition: opacity 0.15s; }
@@ -49,6 +93,15 @@ function outlineDrop(e, projectId) {
     </div>
     <span style="font-size:0.6875rem;color:var(--text-tertiary);">{{ item.status }}</span>
     <div class="item-actions" style="display:flex;gap:0.25rem;">
+        {% if item.level == 1 %}
+        <button onclick="generateLevel('{{ project_id }}', '{{ item.id }}', 2, '{{ item.title }}', '{{ item.summary }}')"
+                style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:0.6875rem;padding:0.2rem 0.4rem;border-radius:4px;"
+                title="AI 生成章节">✦ 章</button>
+        {% elif item.level == 2 %}
+        <button onclick="generateLevel('{{ project_id }}', '{{ item.id }}', 3, '{{ item.title }}', '{{ item.summary }}')"
+                style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:0.6875rem;padding:0.2rem 0.4rem;border-radius:4px;"
+                title="AI 生成细纲">✦ 节</button>
+        {% endif %}
         <button hx-get="/project/{{ project_id }}/outline/new-item?parent_id={{ item.id }}&level={{ item.level + 1 }}"
                 hx-target="body" hx-swap="beforeend"
                 style="background:none;border:none;cursor:pointer;color:var(--text-tertiary);font-size:0.75rem;padding:0.25rem;">+子</button>

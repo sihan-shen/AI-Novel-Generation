@@ -27,21 +27,6 @@
             </div>
         </div>
 
-        <div style="margin-bottom: 1.25rem;">
-            <label class="input-label">生成范围</label>
-            <div style="display: flex; gap: 1rem; font-size: 0.8125rem;">
-                <label style="display: flex; align-items: center; gap: 0.375rem; cursor: pointer;">
-                    <input type="radio" name="gen-scope" value="volumes" checked> 仅卷结构
-                </label>
-                <label style="display: flex; align-items: center; gap: 0.375rem; cursor: pointer;">
-                    <input type="radio" name="gen-scope" value="chapters"> 卷+章
-                </label>
-                <label style="display: flex; align-items: center; gap: 0.375rem; cursor: pointer;">
-                    <input type="radio" name="gen-scope" value="full"> 完整(含细纲)
-                </label>
-            </div>
-        </div>
-
         <div style="display: flex; justify-content: flex-end; gap: 0.5rem; border-top: 1px solid var(--border); padding-top: 1.125rem;">
             <button class="btn btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
             <button class="btn btn-primary" onclick="startGeneration('{{ project.id }}')">开始生成</button>
@@ -60,8 +45,9 @@ function startGeneration(projectId) {
     document.getElementById('generation-result').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-secondary);">生成中...</div>';
     document.querySelector('.modal-overlay').remove();
 
-    var fullResponse = '';
+    window._genContext = {level: 1, parentId: null};
 
+    var fullResponse = '';
     fetch('/project/' + projectId + '/outline/generate/volumes', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -71,25 +57,18 @@ function startGeneration(projectId) {
         var reader = r.body.getReader();
         var decoder = new TextDecoder();
         var buffer = '';
-
         function read() {
             return reader.read().then(function(result) {
-                if (result.done) {
-                    renderGenerationResult(projectId, fullResponse);
-                    return;
-                }
+                if (result.done) { renderGenerationResult(projectId, fullResponse, 1); return; }
                 buffer += decoder.decode(result.value, {stream: true});
                 var lines = buffer.split('\n');
                 buffer = lines.pop() || '';
                 for (var i = 0; i < lines.length; i++) {
-                    var line = lines[i].trim();
-                    if (line.startsWith('data: ')) {
-                        var data = line.slice(6);
-                        if (data === '[DONE]') continue;
-                        try {
-                            var parsed = JSON.parse(data);
-                            if (parsed.content) fullResponse += parsed.content;
-                        } catch(e) {}
+                    var l = lines[i].trim();
+                    if (l.startsWith('data: ')) {
+                        var d = l.slice(6);
+                        if (d === '[DONE]') continue;
+                        try { var p = JSON.parse(d); if (p.content) fullResponse += p.content; } catch(e) {}
                     }
                 }
                 return read();
@@ -99,17 +78,18 @@ function startGeneration(projectId) {
     });
 }
 
-function renderGenerationResult(projectId, jsonStr) {
+function renderGenerationResult(projectId, jsonStr, level) {
     var container = document.getElementById('generation-result');
     try {
         var data = JSON.parse(jsonStr);
-        var items = data.volumes || data.chapters || data.sections || [];
+        var key = level === 1 ? 'volumes' : level === 2 ? 'chapters' : 'sections';
+        var items = data[key] || [];
         var html = '<div class="card" style="padding:1rem;margin-top:1rem;"><h3 style="font-weight:600;margin-bottom:1rem;">📋 生成结果</h3>';
         html += '<div id="gen-editor">';
         items.forEach(function(item, i) {
             html += '<div style="margin-bottom:0.75rem;padding:0.75rem;border:1px solid var(--border);border-radius:var(--radius-sm);">';
-            html += '<input class="input gen-title" value="' + escapeHtml(item.title || '') + '" style="font-weight:600;margin-bottom:0.375rem;" data-index="' + i + '">';
-            html += '<textarea class="input gen-summary" rows="2" data-index="' + i + '" style="font-size:0.8125rem;">' + escapeHtml(item.summary || '') + '</textarea>';
+            html += '<input class="input gen-title" value="' + escapeHtml(item.title || '') + '" style="font-weight:600;margin-bottom:0.375rem;">';
+            html += '<textarea class="input gen-summary" rows="2" style="font-size:0.8125rem;">' + escapeHtml(item.summary || '') + '</textarea>';
             html += '</div>';
         });
         html += '</div>';
@@ -124,19 +104,23 @@ function renderGenerationResult(projectId, jsonStr) {
 }
 
 function confirmGen(projectId) {
+    var ctx = window._genContext || {level: 1, parentId: null};
     var items = [];
     document.querySelectorAll('#gen-editor > div').forEach(function(div) {
         var titleInput = div.querySelector('.gen-title');
         var summaryInput = div.querySelector('.gen-summary');
+        var notesInput = div.querySelector('.gen-notes');
         if (titleInput && titleInput.value.trim()) {
-            items.push({level: 1, title: titleInput.value.trim(), summary: summaryInput ? summaryInput.value.trim() : ''});
+            var item = {level: ctx.level, title: titleInput.value.trim(), summary: summaryInput ? summaryInput.value.trim() : ''};
+            if (notesInput) item.notes = notesInput.value.trim();
+            items.push(item);
         }
     });
 
     fetch('/project/' + projectId + '/outline/generate/confirm', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({items: items, parent_id: null}),
+        body: JSON.stringify({items: items, parent_id: ctx.parentId}),
     })
     .then(function(r) { return r.text(); })
     .then(function(html) {
