@@ -1,20 +1,47 @@
+<script>
+function dragStart(e) {
+    e.dataTransfer.setData('text/plain', e.target.closest('[draggable]').dataset.id);
+    e.dataTransfer.effectAllowed = 'move';
+}
+function allowDrop(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+function drop(e, projectId) {
+    e.preventDefault();
+    var fromId = e.dataTransfer.getData('text/plain');
+    var toEl = e.target.closest('[draggable]');
+    if (!toEl || fromId === toEl.dataset.id) return;
+    var container = document.getElementById('chapter-sidebar');
+    var fromEl = container.querySelector('[data-id="' + fromId + '"]');
+    if (fromEl) {
+        if (fromEl.compareDocumentPosition(toEl) & 2) {
+            toEl.parentNode.insertBefore(fromEl, toEl);
+        } else {
+            toEl.parentNode.insertBefore(fromEl, toEl.nextSibling);
+        }
+    }
+    var items = container.querySelectorAll('[draggable]');
+    var order = Array.from(items).map(function(el, i) { return {id: el.dataset.id, sort_order: i}; });
+    fetch('/project/' + projectId + '/writer/reorder', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({items: order}),
+    });
+}
+</script>
+
 {% for ch in chapters %}
-<div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition); font-size: 0.8125rem;"
-     hx-get="/project/{{ project_id }}/writer/{{ ch.id }}" hx-target="#editor-area" hx-swap="innerHTML"
-     onmouseover="this.style.backgroundColor='var(--bg-hover)'" onmouseout="this.style.backgroundColor='transparent'">
-    <div style="flex: 1; min-width: 0;">
-        <div class="truncate-line" style="font-weight: 500;">{{ ch.title or '无标题' }}</div>
-        <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.125rem;">
-            <span style="font-size: 0.625rem; color: var(--text-tertiary);">{{ ch.word_count }}字</span>
-            <span style="font-size: 0.625rem; color: var(--text-tertiary); opacity: 0.5;">·</span>
-            <span style="font-size: 0.625rem; color: var(--text-tertiary);">{{ ch.status }}</span>
-        </div>
+<div class="card" style="padding:0.5rem 0.625rem;display:flex;align-items:center;gap:0.375rem;margin-bottom:0.25rem;cursor:pointer;"
+     draggable="true" data-id="{{ ch.id }}"
+     ondragstart="dragStart(event)" ondrop="drop(event, '{{ project_id }}')" ondragover="allowDrop(event)"
+     hx-get="/project/{{ project_id }}/writer/{{ ch.id }}" hx-target="#editor-area" hx-swap="innerHTML">
+    <span style="cursor:grab;color:var(--text-tertiary);font-size:0.75rem;user-select:none;">⠿</span>
+    <div style="flex:1;min-width:0;font-size:0.8125rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+        {{ ch.title }}
+        <span style="font-size:0.6875rem;color:var(--text-tertiary);margin-left:0.25rem;">{{ ch.word_count }}字</span>
     </div>
-    <button hx-delete="/project/{{ project_id }}/writer/{{ ch.id }}" hx-target="#chapter-sidebar"
-            hx-confirm="删除该章节？"
-            class="btn-icon" style="width: 22px; height: 22px; font-size: 0.5625rem; border: none; opacity: 0; flex-shrink: 0; transition: opacity var(--transition);"
-            onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color=''">✕</button>
+    <span style="font-size:0.625rem;color:var(--text-tertiary);">{{ ch.status }}</span>
+    <button hx-delete="/project/{{ project_id }}/writer/{{ ch.id }}" hx-target="#chapter-sidebar" hx-confirm="删除？"
+            style="background:none;border:none;cursor:pointer;color:var(--text-tertiary);font-size:0.6875rem;padding:0.125rem;opacity:0;transition:opacity 0.2s;"
+            onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0'">✕</button>
 </div>
 {% else %}
-<p style="text-align: center; color: var(--text-tertiary); font-size: 0.8125rem; padding: 2rem 0.5rem; line-height: 1.6;">暂无章节</p>
+<p style="font-size:0.8125rem;color:var(--text-tertiary);text-align:center;padding:2rem 0;">暂无章节</p>
 {% endfor %}

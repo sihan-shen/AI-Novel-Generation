@@ -60,6 +60,13 @@ async def update_chapter(chapter_id: str, request: Request, db: Session = Depend
     return HTMLResponse("ok")
 
 
+@router.post("/reorder")
+async def reorder_chapters(project_id: str, request: Request, db: Session = Depends(get_db)):
+    data = await request.json()
+    ChapterService.reorder(db, data["items"])
+    return HTMLResponse("ok")
+
+
 @router.delete("/{chapter_id}")
 async def delete_chapter(project_id: str, chapter_id: str, request: Request, db: Session = Depends(get_db)):
     ChapterService.delete(db, chapter_id)

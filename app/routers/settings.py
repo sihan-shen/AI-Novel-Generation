@@ -89,6 +89,13 @@ async def setting_detail(setting_id: str, request: Request, db: Session = Depend
     })
 
 
+@router.post("/reorder")
+async def reorder_settings(project_id: str, request: Request, db: Session = Depends(get_db)):
+    data = await request.json()
+    SettingService.reorder(db, data["items"])
+    return HTMLResponse("ok")
+
+
 @router.delete("/{setting_id}")
 async def delete_setting(project_id: str, setting_id: str, request: Request, db: Session = Depends(get_db)):
     SettingService.delete(db, setting_id)

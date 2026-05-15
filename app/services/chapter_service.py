@@ -34,6 +34,14 @@ class ChapterService:
         return ch
 
     @staticmethod
+    def reorder(db: Session, items: list[dict]) -> None:
+        for item in items:
+            db.query(Chapter).filter(Chapter.id == item["id"]).update(
+                {"sort_order": item["sort_order"]}
+            )
+        db.commit()
+
+    @staticmethod
     def delete(db: Session, chapter_id: str) -> bool:
         ch = ChapterService.get(db, chapter_id)
         if not ch:

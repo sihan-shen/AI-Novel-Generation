@@ -44,6 +44,13 @@ async def promote_idea(idea_id: str, request: Request, db: Session = Depends(get
     return HTMLResponse("ok")
 
 
+@router.post("/reorder")
+async def reorder_ideas(request: Request, db: Session = Depends(get_db)):
+    data = await request.json()
+    IdeaService.reorder(db, data["items"])
+    return HTMLResponse("ok")
+
+
 @router.delete("/{idea_id}")
 async def delete_idea(idea_id: str, db: Session = Depends(get_db)):
     IdeaService.delete(db, idea_id)

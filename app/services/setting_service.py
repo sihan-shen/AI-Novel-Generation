@@ -44,6 +44,14 @@ class SettingService:
         return obj
 
     @staticmethod
+    def reorder(db: Session, items: list[dict]) -> None:
+        for item in items:
+            db.query(Setting).filter(Setting.id == item["id"]).update(
+                {"sort_order": item["sort_order"]}
+            )
+        db.commit()
+
+    @staticmethod
     def delete(db: Session, setting_id: str) -> bool:
         obj = SettingService.get(db, setting_id)
         if not obj:

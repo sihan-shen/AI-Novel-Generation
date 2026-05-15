@@ -1,31 +1,61 @@
+<script>
+function dragStart(e) {
+    e.dataTransfer.setData('text/plain', e.target.closest('[draggable]').dataset.id);
+    e.dataTransfer.effectAllowed = 'move';
+}
+function allowDrop(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+function drop(e, projectId) {
+    e.preventDefault();
+    var fromId = e.dataTransfer.getData('text/plain');
+    var toEl = e.target.closest('[draggable]');
+    if (!toEl || fromId === toEl.dataset.id) return;
+    var container = document.getElementById('settings-list');
+    var items = container.querySelectorAll('[draggable]');
+    var order = Array.from(items).map(function(el, i) {
+        return {id: el.dataset.id, sort_order: i};
+    });
+    fetch('/project/' + projectId + '/settings/reorder', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({items: order}),
+    });
+    // Reorder DOM
+    var fromEl = container.querySelector('[data-id="' + fromId + '"]');
+    if (fromEl) {
+        if (fromEl.compareDocumentPosition(toEl) & 2) {
+            toEl.parentNode.insertBefore(fromEl, toEl);
+        } else {
+            toEl.parentNode.insertBefore(fromEl, toEl.nextSibling);
+        }
+    }
+}
+</script>
+
 {% for item in settings %}
-<div class="card-elevated animate-in animate-in-{{ loop.index if loop.index <= 6 else 6 }}" style="padding: 1rem;">
-    <div style="display: flex; align-items: flex-start; justify-content: space-between;">
-        <div style="flex: 1; min-width: 0;">
-            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                <span class="heading-sm" style="margin: 0;">{{ item.name }}</span>
-                <span class="badge" style="background: var(--bg-hover); color: var(--text-tertiary);">{{ item.category }}</span>
-                {% if item.weight >= 7 %}<span class="badge badge-warning">★核心</span>{% endif %}
-                {% if item.status == 'deprecated' %}<span class="badge badge-danger">已废弃</span>{% endif %}
-            </div>
-            {% if item.summary %}
-            <p style="font-size: 0.8125rem; color: var(--text-secondary); margin-top: 0.375rem; line-height: 1.5;">{{ item.summary }}</p>
-            {% endif %}
+<div class="card" style="padding:0.75rem;display:flex;align-items:center;gap:0.5rem;" draggable="true"
+     data-id="{{ item.id }}"
+     ondragstart="dragStart(event)" ondrop="drop(event, '{{ project_id }}')" ondragover="allowDrop(event)">
+    <span style="cursor:grab;color:var(--text-tertiary);font-size:0.875rem;user-select:none;flex-shrink:0;">⠿</span>
+    <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:0.375rem;">
+            <span style="font-weight:500;font-size:0.875rem;">{{ item.name }}</span>
+            <span style="font-size:0.6875rem;color:var(--text-tertiary);background:var(--bg);padding:0.0625rem 0.375rem;border-radius:3px;">{{ item.category }}</span>
+            {% if item.weight >= 7 %}<span style="font-size:0.625rem;color:#d97706;">★</span>{% endif %}
+            {% if item.status == 'deprecated' %}<span style="font-size:0.625rem;color:#c0392b;">已废弃</span>{% endif %}
         </div>
-        <div style="display: flex; gap: 0.25rem; margin-left: 0.75rem; flex-shrink: 0;">
-            <button hx-get="/project/{{ project_id }}/settings/{{ item.id }}"
-                    hx-target="body" hx-swap="beforeend"
-                    class="btn btn-ghost btn-sm">查看</button>
-            <button hx-delete="/project/{{ project_id }}/settings/{{ item.id }}"
-                    hx-target="#settings-list" hx-confirm="删除「{{ item.name }}」？"
-                    class="btn btn-danger btn-sm">✕</button>
-        </div>
+        {% if item.summary %}
+        <p style="font-size:0.75rem;color:var(--text-secondary);margin-top:0.125rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.summary }}</p>
+        {% endif %}
+    </div>
+    <div style="display:flex;gap:0.25rem;flex-shrink:0;">
+        <button hx-get="/project/{{ project_id }}/settings/{{ item.id }}" hx-target="body" hx-swap="beforeend"
+                style="background:none;border:none;cursor:pointer;color:var(--text-tertiary);font-size:0.75rem;padding:0.25rem;">查看</button>
+        <button hx-delete="/project/{{ project_id }}/settings/{{ item.id }}" hx-target="#settings-list" hx-confirm="删除「{{ item.name }}」？"
+                style="background:none;border:none;cursor:pointer;color:var(--text-tertiary);font-size:0.75rem;padding:0.25rem;">✕</button>
     </div>
 </div>
 {% else %}
-<div class="empty-state" style="grid-column: 1 / -1;">
-    <span class="empty-state-icon">🌍</span>
-    <div class="empty-state-title">暂无设定条目</div>
-    <p class="empty-state-desc" style="margin-top: 0.375rem;">选择一个分类后点击添加</p>
+<div style="text-align:center;padding:2rem;color:var(--text-tertiary);">
+    <p style="font-size:0.9375rem;">暂无设定条目</p>
 </div>
 {% endfor %}

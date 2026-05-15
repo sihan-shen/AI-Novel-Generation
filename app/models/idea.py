@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Integer
 from app.database import Base
 
 
@@ -16,4 +16,5 @@ class Idea(Base):
     status = Column(String, default="active")
     promoted_to_type = Column(String, nullable=True)
     promoted_to_id = Column(String, nullable=True)
+    sort_order = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
