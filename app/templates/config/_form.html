@@ -46,6 +46,23 @@
     <p style="font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 0.25rem;">可直接输入自定义模型名称</p>
 </div>
 
+<div style="margin-bottom: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border-light);">
+    <label style="display: block; font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.5rem;">服务器</label>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <div style="flex: 1;">
+            <label style="font-size: 0.6875rem; color: var(--text-tertiary);">IP/地址</label>
+            <input type="text" name="host" value="{{ cfg.host }}"
+                   class="input" style="width:100%;">
+        </div>
+        <div style="width: 100px;">
+            <label style="font-size: 0.6875rem; color: var(--text-tertiary);">端口</label>
+            <input type="number" name="port" value="{{ cfg.port }}" min="1" max="65535"
+                   class="input" style="width:100%;">
+        </div>
+    </div>
+    <p style="font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 0.25rem;">重启后生效</p>
+</div>
+
 <div style="border-top: 1px solid var(--border); padding-top: 1rem; display: flex; justify-content: flex-end;">
     <button type="submit" class="btn btn-primary">保存配置</button>
 </div>

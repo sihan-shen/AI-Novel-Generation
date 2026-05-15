@@ -8,6 +8,8 @@ class ConfigService:
         "api_key": "",
         "base_url": "",
         "model": "claude-sonnet-4-6",
+        "host": "0.0.0.0",
+        "port": "8000",
     }
 
     @staticmethod

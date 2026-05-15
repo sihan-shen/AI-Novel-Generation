@@ -34,12 +34,27 @@ async def dashboard(request: Request):
     return templates.TemplateResponse(request, "dashboard.html", {"request": request})
 
 
+def _get_server_config():
+    """Read host/port from DB config, falling back to env defaults."""
+    try:
+        from app.database import SessionLocal
+        from app.services.config_service import ConfigService
+        db = SessionLocal()
+        cfg = ConfigService.get_all(db)
+        db.close()
+        return cfg.get("host", "0.0.0.0"), int(cfg.get("port", 8000))
+    except Exception:
+        return "0.0.0.0", 8000
+
+
 def start():
     """Entry point for `novel-forge` CLI command."""
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000)
+    host, port = _get_server_config()
+    uvicorn.run("app.main:app", host=host, port=port)
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    host, port = _get_server_config()
+    uvicorn.run("app.main:app", host=host, port=port, reload=True)
