@@ -1,26 +1,26 @@
-<div id="modal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-    <div class="bg-white rounded-xl p-6 w-full max-w-2xl shadow-xl" onclick="event.stopPropagation()">
-        <h2 class="text-lg font-bold mb-4">导入文风</h2>
+<div id="modal" class="modal-overlay">
+    <div class="modal-content" style="width: 100%; max-width: 600px; padding: 1.75rem;" onclick="event.stopPropagation()">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+            <h2 class="heading" style="margin: 0;">导入文风</h2>
+            <button type="button" onclick="this.closest('#modal').remove()" class="btn-icon">✕</button>
+        </div>
         <form hx-post="/styles/analyze-slices" hx-target="#slice-results" hx-swap="innerHTML">
-            <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">文风名称</label>
-                <input type="text" name="name" placeholder="如：村上春树冷峻都市风"
-                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <div style="margin-bottom: 1rem;">
+                <label class="input-label">文风名称</label>
+                <input type="text" name="name" placeholder="如：村上春树冷峻都市风" class="input">
             </div>
-            <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">粘贴参考文本</label>
+            <div style="margin-bottom: 1.25rem;">
+                <label class="input-label">粘贴参考文本</label>
                 <textarea name="text" rows="10" required
                           placeholder="粘贴作者的原文，LLM 将自动分析文风特征..."
-                          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"></textarea>
+                          class="input font-mono" style="font-size: 0.8125rem;"></textarea>
             </div>
-            <div class="flex justify-between">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
                 <button type="button" onclick="this.closest('#modal').remove()"
-                        class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">取消</button>
-                <button type="submit" class="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700">
-                    分析文风
-                </button>
+                        class="btn btn-ghost">取消</button>
+                <button type="submit" class="btn btn-primary">分析文风</button>
             </div>
         </form>
-        <div id="slice-results" class="mt-4"></div>
+        <div id="slice-results" style="margin-top: 1rem;"></div>
     </div>
 </div>

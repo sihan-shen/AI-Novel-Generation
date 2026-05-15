@@ -1,18 +1,20 @@
 <div class="modal-overlay">
-    <div class="modal-content" style="width: 100%; max-width: 480px; padding: 1.5rem;" onclick="event.stopPropagation()">
+    <div class="modal-content" style="width: 100%; max-width: 500px; padding: 1.75rem;" onclick="event.stopPropagation()">
         <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.25rem;">
-            <h2 style="font-size: 1.125rem; font-weight: 700;">{{ setting.name }}</h2>
-            <button onclick="this.closest('.modal-overlay').remove()" style="background: none; border: none; cursor: pointer; color: var(--text-tertiary); font-size: 1.25rem; padding: 0.25rem;">✕</button>
+            <h2 class="heading" style="margin: 0;">{{ setting.name }}</h2>
+            <button onclick="this.closest('.modal-overlay').remove()" class="btn-icon">✕</button>
         </div>
         <div style="font-size: 0.875rem; display: flex; flex-direction: column; gap: 0.75rem;">
-            <div><span style="color: var(--text-secondary);">分类：</span>{{ setting.category }}</div>
-            {% if setting.summary %}<div><span style="color: var(--text-secondary);">概要：</span>{{ setting.summary }}</div>{% endif %}
-            {% if setting.weight %}<div><span style="color: var(--text-secondary);">重要度：</span>{{ setting.weight }}/10</div>{% endif %}
-            <div><span style="color: var(--text-secondary);">状态：</span>{{ setting.status }}</div>
+            <div><span style="color: var(--text-secondary); font-weight: 500;">分类：</span>{{ setting.category }}</div>
+            {% if setting.summary %}<div><span style="color: var(--text-secondary); font-weight: 500;">概要：</span>{{ setting.summary }}</div>{% endif %}
+            {% if setting.weight %}<div><span style="color: var(--text-secondary); font-weight: 500;">重要度：</span>{{ setting.weight }}/10</div>{% endif %}
+            <div><span style="color: var(--text-secondary); font-weight: 500;">状态：</span>
+                <span class="badge {% if setting.status == 'deprecated' %}badge-danger{% else %}badge-success{% endif %}">{{ setting.status }}</span>
+            </div>
             {% if setting.content %}
-            <div>
-                <span style="color: var(--text-secondary);">详细内容：</span>
-                <div style="margin-top: 0.375rem; padding: 0.75rem; background: var(--bg); border-radius: 8px; white-space: pre-wrap; font-size: 0.8125rem;">{{ setting.content }}</div>
+            <div style="padding-top: 0.5rem; border-top: 1px solid var(--border-light);">
+                <span style="color: var(--text-secondary); font-weight: 500; font-size: 0.8125rem;">详细内容</span>
+                <div style="margin-top: 0.5rem; padding: 0.75rem; background: var(--bg); border-radius: var(--radius-sm); white-space: pre-wrap; font-size: 0.8125rem; line-height: 1.6;">{{ setting.content }}</div>
             </div>
             {% endif %}
         </div>

@@ -1,14 +1,20 @@
 {% for ch in chapters %}
-<div class="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer text-sm group"
-     hx-get="/project/{{ project_id }}/writer/{{ ch.id }}" hx-target="#editor-area" hx-swap="innerHTML">
-    <div class="truncate flex-1">
-        <span>{{ ch.title }}</span>
-        <span class="text-xs text-gray-400 ml-1">{{ ch.word_count }}字</span>
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition); font-size: 0.8125rem;"
+     hx-get="/project/{{ project_id }}/writer/{{ ch.id }}" hx-target="#editor-area" hx-swap="innerHTML"
+     onmouseover="this.style.backgroundColor='var(--bg-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+    <div style="flex: 1; min-width: 0;">
+        <div class="truncate-line" style="font-weight: 500;">{{ ch.title or '无标题' }}</div>
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.125rem;">
+            <span style="font-size: 0.625rem; color: var(--text-tertiary);">{{ ch.word_count }}字</span>
+            <span style="font-size: 0.625rem; color: var(--text-tertiary); opacity: 0.5;">·</span>
+            <span style="font-size: 0.625rem; color: var(--text-tertiary);">{{ ch.status }}</span>
+        </div>
     </div>
-    <span class="text-xs text-gray-300 ml-1">{{ ch.status }}</span>
     <button hx-delete="/project/{{ project_id }}/writer/{{ ch.id }}" hx-target="#chapter-sidebar"
-            hx-confirm="删除？" class="text-xs text-gray-300 hover:text-red-500 ml-2 opacity-0 group-hover:opacity-100">✕</button>
+            hx-confirm="删除该章节？"
+            class="btn-icon" style="width: 22px; height: 22px; font-size: 0.5625rem; border: none; opacity: 0; flex-shrink: 0; transition: opacity var(--transition);"
+            onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color=''">✕</button>
 </div>
 {% else %}
-<p class="text-sm text-gray-400 text-center py-8">暂无章节</p>
+<p style="text-align: center; color: var(--text-tertiary); font-size: 0.8125rem; padding: 2rem 0.5rem; line-height: 1.6;">暂无章节</p>
 {% endfor %}

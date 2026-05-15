@@ -1,25 +1,22 @@
 <div class="modal-overlay" id="modal">
-    <div class="modal-content" style="width: 100%; max-width: 420px; padding: 1.5rem;" onclick="event.stopPropagation()">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
-            <h2 style="font-size: 1.125rem; font-weight: 700;">新建项目</h2>
+    <div class="modal-content" style="width: 100%; max-width: 440px; padding: 1.75rem;" onclick="event.stopPropagation()">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+            <h2 class="heading" style="margin: 0;">新建项目</h2>
             <button type="button" onclick="document.getElementById('modal').remove()"
-                    style="background: none; border: none; cursor: pointer; color: var(--text-tertiary); font-size: 1.25rem; padding: 0.25rem;">✕</button>
+                    class="btn-icon">✕</button>
         </div>
         <form hx-post="/projects/create" hx-target="#project-list" hx-swap="innerHTML">
             <div style="margin-bottom: 1rem;">
-                <label style="display: block; font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.375rem;">标题 *</label>
-                <input type="text" name="title" required placeholder="给你的小说取个名字"
-                       style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.875rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); transition: all 0.2s;">
+                <label class="input-label">标题 *</label>
+                <input type="text" name="title" required placeholder="给你的小说取个名字" class="input">
             </div>
             <div style="margin-bottom: 1rem;">
-                <label style="display: block; font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.375rem;">类型</label>
-                <input type="text" name="genre" placeholder="奇幻 / 科幻 / 悬疑..."
-                       style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.875rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); transition: all 0.2s;">
+                <label class="input-label">类型</label>
+                <input type="text" name="genre" placeholder="奇幻 / 科幻 / 悬疑..." class="input">
             </div>
-            <div style="margin-bottom: 1.25rem;">
-                <label style="display: block; font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.375rem;">简介</label>
-                <textarea name="description" rows="3" placeholder="简单描述你的故事..."
-                          style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.875rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); transition: all 0.2s; resize: vertical;"></textarea>
+            <div style="margin-bottom: 1.5rem;">
+                <label class="input-label">简介</label>
+                <textarea name="description" rows="3" placeholder="简单描述你的故事..." class="input"></textarea>
             </div>
             <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
                 <button type="button" onclick="document.getElementById('modal').remove()" class="btn btn-ghost">取消</button>

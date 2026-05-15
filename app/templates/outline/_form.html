@@ -1,9 +1,9 @@
 <div class="modal-overlay">
-    <div class="modal-content" style="width: 100%; max-width: 420px; padding: 1.5rem;" onclick="event.stopPropagation()">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
-            <h2 style="font-size: 1.125rem; font-weight: 700;">{{ "编辑" if is_edit else "新建" }}大纲项</h2>
+    <div class="modal-content" style="width: 100%; max-width: 440px; padding: 1.75rem;" onclick="event.stopPropagation()">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+            <h2 class="heading" style="margin: 0;">{{ "编辑" if is_edit else "新建" }}大纲项</h2>
             <button type="button" onclick="this.closest('.modal-overlay').remove()"
-                    style="background: none; border: none; cursor: pointer; color: var(--text-tertiary); font-size: 1.25rem; padding: 0.25rem;">✕</button>
+                    class="btn-icon">✕</button>
         </div>
         <form hx-post="{{ post_url }}" hx-target="#outline-tree" hx-swap="innerHTML">
             {% if parent_id %}
@@ -11,14 +11,12 @@
             {% endif %}
             <input type="hidden" name="level" value="{{ level }}">
             <div style="margin-bottom: 1rem;">
-                <label style="display: block; font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.375rem;">标题 *</label>
-                <input type="text" name="title" value="{{ item.title if item else '' }}" required
-                       style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.875rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text);">
+                <label class="input-label">标题 *</label>
+                <input type="text" name="title" value="{{ item.title if item else '' }}" required class="input">
             </div>
-            <div style="margin-bottom: 1.25rem;">
-                <label style="display: block; font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.375rem;">摘要</label>
-                <textarea name="summary" rows="3"
-                          style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.875rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); resize: vertical;">{{ item.summary if item else '' }}</textarea>
+            <div style="margin-bottom: 1.5rem;">
+                <label class="input-label">摘要</label>
+                <textarea name="summary" rows="3" class="input">{{ item.summary if item else '' }}</textarea>
             </div>
             <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
                 <button type="button" onclick="this.closest('.modal-overlay').remove()" class="btn btn-ghost">取消</button>

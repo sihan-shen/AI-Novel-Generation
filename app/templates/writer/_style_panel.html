@@ -1,13 +1,15 @@
-<div class="bg-white rounded-lg border border-gray-200 p-3 text-sm">
-    <h3 class="font-semibold text-gray-500 mb-2">文风参考</h3>
+<div class="card" style="padding: 1rem;">
+    <h3 class="subheading" style="margin-bottom: 0.625rem;">文风参考</h3>
     {% if styles %}
-    {% for s in styles %}
-    <div class="flex items-center justify-between py-1">
-        <span>{{ s.name }}</span>
-        <span class="text-xs text-gray-400">{{ s.weight }}x</span>
+    <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+        {% for s in styles %}
+        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.8125rem; padding: 0.25rem 0;">
+            <span>{{ s.name }}</span>
+            <span style="font-size: 0.6875rem; color: var(--text-tertiary);">{{ s.weight }}x</span>
+        </div>
+        {% endfor %}
     </div>
-    {% endfor %}
     {% else %}
-    <p class="text-gray-400 text-xs">未设置参考文风</p>
+    <p style="font-size: 0.75rem; color: var(--text-tertiary); line-height: 1.6;">未设置参考文风</p>
     {% endif %}
 </div>

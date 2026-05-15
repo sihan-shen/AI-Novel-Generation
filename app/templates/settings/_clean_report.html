@@ -1,12 +1,12 @@
 <div class="modal-overlay">
-    <div class="modal-content" style="width: 100%; max-width: 480px; padding: 1.5rem;" onclick="event.stopPropagation()">
+    <div class="modal-content" style="width: 100%; max-width: 500px; padding: 1.75rem;" onclick="event.stopPropagation()">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
-            <h2 style="font-size: 1.125rem; font-weight: 700;">🧹 打扫报告</h2>
-            <button onclick="this.closest('.modal-overlay').remove()" style="background: none; border: none; cursor: pointer; color: var(--text-tertiary); font-size: 1.25rem; padding: 0.25rem;">✕</button>
+            <h2 class="heading" style="margin: 0;">🧹 打扫报告</h2>
+            <button onclick="this.closest('.modal-overlay').remove()" class="btn-icon">✕</button>
         </div>
-        <div style="font-size: 0.875rem;">
-            <div style="margin-bottom: 1rem;">
-                <h3 style="font-weight: 600; color: #d97706; margin-bottom: 0.5rem;">基础清扫</h3>
+        <div style="font-size: 0.875rem; line-height: 1.7;">
+            <div style="margin-bottom: 1.25rem;">
+                <h3 style="font-weight: 600; color: var(--warning); margin-bottom: 0.5rem;">基础清扫</h3>
                 <p>发现 <strong>{{ basic.orphans|length }}</strong> 个孤立条目</p>
                 {% if basic.orphans %}
                 <ul style="list-style: disc; padding-left: 1.25rem; color: var(--text-secondary); margin-top: 0.25rem;">
@@ -18,7 +18,7 @@
                 <p style="margin-top: 0.25rem;">发现 <strong>{{ basic.empty|length }}</strong> 个空条目</p>
             </div>
             <div>
-                <h3 style="font-weight: 600; color: #16a34a; margin-bottom: 0.5rem;">深度清理</h3>
+                <h3 style="font-weight: 600; color: var(--success); margin-bottom: 0.5rem;">深度清理</h3>
                 <p>已归档 <strong>{{ deep.archived|length }}</strong> 个废弃条目</p>
             </div>
         </div>

@@ -1,19 +1,19 @@
 <div class="modal-overlay">
-    <div class="modal-content" style="width: 100%; max-width: 560px; padding: 1.5rem; max-height: 80vh; overflow-y: auto;" onclick="event.stopPropagation()">
+    <div class="modal-content" style="width: 100%; max-width: 560px; padding: 1.75rem; max-height: 80vh; overflow-y: auto;" onclick="event.stopPropagation()">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
-            <h2 style="font-size: 1.125rem; font-weight: 700;">审阅详情</h2>
-            <button onclick="this.closest('.modal-overlay').remove()" style="background: none; border: none; cursor: pointer; color: var(--text-tertiary); font-size: 1.25rem; padding: 0.25rem;">✕</button>
+            <h2 class="heading" style="margin: 0;">审阅详情</h2>
+            <button onclick="this.closest('.modal-overlay').remove()" class="btn-icon">✕</button>
         </div>
-        <div style="font-size: 0.875rem;">
-            <p><span style="color: var(--text-secondary);">范围：</span>{{ review.scope }}</p>
-            <p><span style="color: var(--text-secondary);">状态：</span>{{ review.status }}</p>
-            <p><span style="color: var(--text-secondary);">时间：</span>{{ review.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+        <div style="font-size: 0.875rem; line-height: 1.8;">
+            <p style="display: flex; gap: 0.5rem;"><span style="color: var(--text-secondary); min-width: 3rem;">范围：</span>{{ review.scope }}</p>
+            <p style="display: flex; gap: 0.5rem;"><span style="color: var(--text-secondary); min-width: 3rem;">状态：</span><span class="badge {% if review.status == 'pending' %}badge-warning{% else %}badge-success{% endif %}">{{ review.status }}</span></p>
+            <p style="display: flex; gap: 0.5rem;"><span style="color: var(--text-secondary); min-width: 3rem;">时间：</span>{{ review.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
             {% if review.findings and review.findings != '[]' %}
-            <div style="margin-top: 1rem;">
-                <h3 style="font-weight: 600; margin-bottom: 0.5rem;">审阅发现</h3>
+            <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                <h3 style="font-weight: 600; font-size: 0.875rem; margin-bottom: 0.75rem;">审阅发现</h3>
                 <div style="display: flex; flex-direction: column; gap: 0.5rem;">
                     {% for finding in review.findings %}
-                    <div style="padding: 0.75rem; background: var(--bg); border-radius: 8px; font-size: 0.8125rem;">{{ finding }}</div>
+                    <div style="padding: 0.75rem; background: var(--bg); border-radius: var(--radius-sm); font-size: 0.8125rem; line-height: 1.6;">{{ finding }}</div>
                     {% endfor %}
                 </div>
             </div>

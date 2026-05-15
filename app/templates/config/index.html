@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block title %}配置{% endblock %}
 {% block content %}
-<div class="max-w-2xl mx-auto">
-    <h1 class="text-2xl font-bold mb-6">应用配置</h1>
-    <div class="bg-white rounded-lg border border-gray-200 p-6">
+<div class="animate-slide-up" style="max-width: 640px; margin: 0 auto;">
+    <h1 class="page-header-title" style="margin-bottom: 1.5rem;">应用配置</h1>
+    <div class="card-elevated" style="padding: 1.75rem;">
         <form hx-post="/config/save" hx-target="#config-form" hx-swap="innerHTML">
             <div id="config-form">
                 {% include "config/_form.html" %}

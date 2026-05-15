@@ -1,11 +1,10 @@
 <input type="text" name="model" id="model-input" value="{{ current }}" list="model-suggestions" autocomplete="off"
-       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500"
-       placeholder="输入或选择一个模型">
+       class="input" placeholder="输入或选择一个模型">
 <datalist id="model-suggestions">
     {% for m in models %}
     <option value="{{ m }}">{{ m }}</option>
     {% endfor %}
 </datalist>
 {% if not models %}
-<p class="text-xs text-red-400 mt-1">未获取到模型列表，可手动输入模型名称</p>
+<p style="font-size: 0.6875rem; color: var(--danger); margin-top: 0.25rem;">未获取到模型列表，可手动输入模型名称</p>
 {% endif %}

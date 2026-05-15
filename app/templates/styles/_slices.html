@@ -1,34 +1,35 @@
 {% if slices %}
-<div class="mt-4 border-t pt-4">
-    <h3 class="font-semibold text-sm mb-3">LLM 发现 {{ slices|length }} 个文风切片，请选择：</h3>
+<div style="border-top: 1px solid var(--border); padding-top: 1.25rem; margin-top: 0.5rem;">
+    <p style="font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.75rem;">
+        LLM 发现 <strong style="color: var(--text);">{{ slices|length }}</strong> 个文风切片，请选择：
+    </p>
     <form hx-post="/styles/confirm-import" hx-target="#style-list" hx-swap="innerHTML"
           hx-on::after-request="document.getElementById('modal')?.remove()">
         <input type="hidden" name="name" value="{{ name }}">
         <input type="hidden" name="source_text" value="{{ full_text }}">
-        <div class="space-y-2 max-h-60 overflow-y-auto">
+        <div style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 240px; overflow-y: auto; padding-right: 0.25rem;">
             {% for slice in slices %}
-            <label class="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                <input type="radio" name="selected_text" value="{{ slice.text }}" {% if loop.first %}checked{% endif %}>
-                <div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-medium bg-primary-100 text-primary-700 px-1.5 py-0.5 rounded">{{ slice.type }}</span>
-                        <span class="text-xs text-amber-600">{{ '★' * slice.stars }}{{ '☆' * (5 - slice.stars) }}</span>
+            <label style="display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: border-color var(--transition);"
+                   onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor=''">
+                <input type="radio" name="selected_text" value="{{ slice.text }}" {% if loop.first %}checked{% endif %} style="margin-top: 0.1875rem; accent-color: var(--accent);">
+                <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+                        <span class="badge">{{ slice.type }}</span>
+                        <span style="font-size: 0.6875rem; color: var(--warning);">{{ '★' * slice.stars }}{{ '☆' * (5 - slice.stars) }}</span>
                     </div>
-                    <p class="text-xs text-gray-500 mt-1">{{ slice.reason }}</p>
-                    <p class="text-xs text-gray-400 mt-1 line-clamp-2">{{ slice.text[:100] }}...</p>
+                    <p style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5;">{{ slice.reason }}</p>
+                    <p style="font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 0.25rem;" class="truncate-line">{{ slice.text[:100] }}...</p>
                 </div>
             </label>
             {% endfor %}
         </div>
-        <div class="mt-3 flex justify-end gap-2">
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
             <button type="button" onclick="this.closest('#modal').remove()"
-                    class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">取消</button>
-            <button type="submit" class="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700">
-                确认导入
-            </button>
+                    class="btn btn-ghost">取消</button>
+            <button type="submit" class="btn btn-primary">确认导入</button>
         </div>
     </form>
 </div>
 {% else %}
-<p class="text-sm text-gray-400 mt-3">文本过短或 LLM 分析失败，请尝试更长的文本。</p>
+<p style="font-size: 0.8125rem; color: var(--text-tertiary); margin-top: 0.75rem; line-height: 1.6;">文本过短或 LLM 分析失败，请尝试更长的文本。</p>
 {% endif %}

@@ -1,24 +1,25 @@
 <div class="modal-overlay" id="extract-modal">
-    <div class="modal-content" style="width: 100%; max-width: 520px; padding: 1.5rem; max-height: 80vh; overflow-y: auto;" onclick="event.stopPropagation()">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
-            <h2 style="font-size: 1.125rem; font-weight: 700;">📋 保存到项目</h2>
-            <button onclick="this.closest('.modal-overlay').remove()" style="background:none;border:none;cursor:pointer;color:var(--text-tertiary);font-size:1.25rem;">✕</button>
+    <div class="modal-content" style="width: 100%; max-width: 540px; padding: 1.75rem; max-height: 80vh; overflow-y: auto;" onclick="event.stopPropagation()">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
+            <h2 class="heading" style="margin: 0;">📋 保存到项目</h2>
+            <button onclick="this.closest('.modal-overlay').remove()" class="btn-icon">✕</button>
         </div>
 
         {% set total = result.settings|length + result.outlines|length + result.ideas|length %}
         {% if total == 0 %}
-        <p style="color: var(--text-secondary); font-size: 0.875rem;">对话中未提取到可沉淀的内容。</p>
+        <p style="color: var(--text-secondary); font-size: 0.875rem; line-height: 1.6;">对话中未提取到可沉淀的内容。</p>
         {% else %}
-        <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1rem;">提取到 <strong>{{ total }}</strong> 项内容，请选择要保存的：</p>
+        <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1.25rem;">提取到 <strong style="color: var(--text);">{{ total }}</strong> 项内容，请选择要保存的：</p>
 
         <form id="save-form">
             {% if result.settings %}
-            <div style="margin-bottom: 1rem;">
-                <h3 style="font-size: 0.8125rem; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">设定条目 ({{ result.settings|length }})</h3>
+            <div style="margin-bottom: 1.25rem;">
+                <h3 class="subheading" style="margin-bottom: 0.625rem;">设定条目 ({{ result.settings|length }})</h3>
                 <div style="display: flex; flex-direction: column; gap: 0.375rem;">
                     {% for s in result.settings %}
-                    <label style="display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.5rem; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 0.8125rem;">
-                        <input type="checkbox" name="settings" value="{{ loop.index0 }}" checked style="margin-top: 0.125rem;">
+                    <label style="display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.625rem; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 0.8125rem; transition: border-color var(--transition);"
+                           onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor=''">
+                        <input type="checkbox" name="settings" value="{{ loop.index0 }}" checked style="margin-top: 0.1875rem; accent-color: var(--accent);">
                         <div>
                             <span style="font-weight: 500;">[{{ s.category }}] {{ s.name }}</span>
                             {% if s.summary %}<span style="color: var(--text-secondary);"> — {{ s.summary }}</span>{% endif %}
@@ -30,12 +31,13 @@
             {% endif %}
 
             {% if result.outlines %}
-            <div style="margin-bottom: 1rem;">
-                <h3 style="font-size: 0.8125rem; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">大纲节点 ({{ result.outlines|length }})</h3>
+            <div style="margin-bottom: 1.25rem;">
+                <h3 class="subheading" style="margin-bottom: 0.625rem;">大纲节点 ({{ result.outlines|length }})</h3>
                 <div style="display: flex; flex-direction: column; gap: 0.375rem;">
                     {% for o in result.outlines %}
-                    <label style="display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.5rem; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 0.8125rem;">
-                        <input type="checkbox" name="outlines" value="{{ loop.index0 }}" checked style="margin-top: 0.125rem;">
+                    <label style="display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.625rem; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 0.8125rem; transition: border-color var(--transition);"
+                           onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor=''">
+                        <input type="checkbox" name="outlines" value="{{ loop.index0 }}" checked style="margin-top: 0.1875rem; accent-color: var(--accent);">
                         <div>
                             <span style="font-weight: 500;">{{ o.title }}</span>
                             {% if o.summary %}<span style="color: var(--text-secondary);"> — {{ o.summary }}</span>{% endif %}
@@ -47,12 +49,13 @@
             {% endif %}
 
             {% if result.ideas %}
-            <div style="margin-bottom: 1rem;">
-                <h3 style="font-size: 0.8125rem; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">灵感 ({{ result.ideas|length }})</h3>
+            <div style="margin-bottom: 1.25rem;">
+                <h3 class="subheading" style="margin-bottom: 0.625rem;">灵感 ({{ result.ideas|length }})</h3>
                 <div style="display: flex; flex-direction: column; gap: 0.375rem;">
                     {% for idea in result.ideas %}
-                    <label style="display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.5rem; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 0.8125rem;">
-                        <input type="checkbox" name="ideas" value="{{ loop.index0 }}" checked style="margin-top: 0.125rem;">
+                    <label style="display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.625rem; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 0.8125rem; transition: border-color var(--transition);"
+                           onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor=''">
+                        <input type="checkbox" name="ideas" value="{{ loop.index0 }}" checked style="margin-top: 0.1875rem; accent-color: var(--accent);">
                         <div>
                             <span style="font-weight: 500;">{{ idea.title }}</span>
                             {% if idea.content %}<span style="color: var(--text-secondary);"> — {{ idea.content[:80] }}{% if idea.content|length > 80 %}...{% endif %}</span>{% endif %}

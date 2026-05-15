@@ -1,21 +1,21 @@
 <div class="modal-overlay">
-    <div class="modal-content" style="width: 100%; max-width: 420px; padding: 1.5rem;" onclick="event.stopPropagation()">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
-            <h2 style="font-size: 1.125rem; font-weight: 700;">发起审阅</h2>
+    <div class="modal-content" style="width: 100%; max-width: 440px; padding: 1.75rem;" onclick="event.stopPropagation()">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+            <h2 class="heading" style="margin: 0;">发起审阅</h2>
             <button type="button" onclick="this.closest('.modal-overlay').remove()"
-                    style="background: none; border: none; cursor: pointer; color: var(--text-tertiary); font-size: 1.25rem; padding: 0.25rem;">✕</button>
+                    class="btn-icon">✕</button>
         </div>
         <form hx-post="/project/{{ project_id }}/review/run" hx-target="#review-list" hx-swap="innerHTML">
             <div style="margin-bottom: 1rem;">
-                <label style="display: block; font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.375rem;">选择审阅范围</label>
-                <select name="scope" style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.875rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text);">
+                <label class="input-label">选择审阅范围</label>
+                <select name="scope" class="input">
                     <option value="instant">即时审阅（轻量）</option>
                     <option value="batch" selected>批量审阅（全量）</option>
                 </select>
             </div>
-            <div style="margin-bottom: 1.25rem;">
-                <label style="display: block; font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.375rem;">选择章节 *</label>
-                <select name="chapter_id" required style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.875rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text);">
+            <div style="margin-bottom: 1.5rem;">
+                <label class="input-label">选择章节 *</label>
+                <select name="chapter_id" required class="input">
                     <option value="">请选择...</option>
                     {% for ch in chapters %}
                     <option value="{{ ch.id }}">{{ ch.title }} ({{ ch.word_count }}字)</option>

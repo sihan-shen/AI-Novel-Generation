@@ -1,11 +1,11 @@
 {% if saved %}
-<div class="mb-4 px-4 py-2 bg-green-50 text-green-700 rounded-lg text-sm border border-green-200">配置已保存</div>
+<div style="margin-bottom: 1rem; padding: 0.625rem 1rem; background: rgba(90, 143, 106, 0.08); color: var(--success); border-radius: var(--radius-sm); font-size: 0.8125rem; border: 1px solid rgba(90, 143, 106, 0.15);">配置已保存</div>
 {% endif %}
 
-<div class="mb-4">
-    <label class="block text-sm font-medium text-gray-700 mb-1">LLM 提供商</label>
+<div style="margin-bottom: 1rem;">
+    <label class="input-label">LLM 提供商</label>
     <select name="llm_provider" id="provider-select" onchange="onProviderChange(this.value)"
-            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+            class="input">
         {% for pid, info in providers.items() %}
         <option value="{{ pid }}" {% if cfg.llm_provider == pid %}selected{% endif %}
                 data-has-key="{{ 'true' if info.needs_api_key else 'false' }}"
@@ -20,49 +20,34 @@
     </select>
 </div>
 
-<div id="api-key-area" class="mb-4">
-    <label class="block text-sm font-medium text-gray-700 mb-1" id="api-key-label">API Key</label>
-    <input type="password" name="api_key" value="{{ cfg.api_key }}"
-           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500"
-           placeholder="输入 API Key">
-    <p class="text-xs text-gray-400 mt-1">留空则使用 .env 中的值（如有）</p>
+<div id="api-key-area" style="margin-bottom: 1rem;">
+    <label class="input-label" id="api-key-label">API Key</label>
+    <input type="password" name="api_key" value="{{ cfg.api_key }}" class="input" placeholder="输入 API Key">
+    <p style="font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 0.25rem;">留空则使用 .env 中的值（如有）</p>
 </div>
 
-<div id="base-url-area" class="mb-4"{% if cfg.llm_provider not in ('ollama', 'custom') %} style="display:none"{% endif %}>
-    <label class="block text-sm font-medium text-gray-700 mb-1" id="base-url-label">API 地址</label>
-    <input type="text" name="base_url" value="{{ cfg.base_url }}"
-           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500"
-           placeholder="" id="base-url-input">
+<div id="base-url-area" style="margin-bottom: 1rem;{% if cfg.llm_provider not in ('ollama', 'custom') %}display:none{% endif %}">
+    <label class="input-label" id="base-url-label">API 地址</label>
+    <input type="text" name="base_url" value="{{ cfg.base_url }}" class="input" placeholder="" id="base-url-input">
 </div>
 
-<div class="mb-4">
-    <div class="flex items-center justify-between mb-1">
-        <label class="block text-sm font-medium text-gray-700">模型</label>
-        <div class="flex gap-1">
-            <button type="button" id="fetch-models-btn" style="display:none"
-                    hx-get="/config/fetch-models" hx-target="#model-list"
-                    class="text-xs text-primary-600 hover:text-primary-700 border border-primary-200 px-2 py-0.5 rounded">
-                从 API 获取列表
-            </button>
-        </div>
+<div style="margin-bottom: 1.5rem;">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.375rem;">
+        <label class="input-label" style="margin-bottom: 0;">模型</label>
+        <button type="button" id="fetch-models-btn" style="display:none"
+                hx-get="/config/fetch-models" hx-target="#model-list"
+                class="btn btn-ghost btn-sm">
+            从 API 获取列表
+        </button>
     </div>
     <div id="model-list">
-        <input type="text" name="model" id="model-input" value="{{ cfg.model }}" list="model-suggestions" autocomplete="off"
-               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500"
-               placeholder="输入或选择一个模型">
-        <datalist id="model-suggestions">
-            {% for m in providers[cfg.llm_provider].preset_models %}
-            <option value="{{ m }}">{{ m }}</option>
-            {% endfor %}
-        </datalist>
+        {% include "config/_model_list.html" %}
     </div>
-    <p class="text-xs text-gray-400 mt-1">可直接输入自定义模型名称</p>
+    <p style="font-size: 0.6875rem; color: var(--text-tertiary); margin-top: 0.25rem;">可直接输入自定义模型名称</p>
 </div>
 
-<div class="border-t pt-4 flex justify-end">
-    <button type="submit" class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm">
-        保存配置
-    </button>
+<div style="border-top: 1px solid var(--border); padding-top: 1rem; display: flex; justify-content: flex-end;">
+    <button type="submit" class="btn btn-primary">保存配置</button>
 </div>
 
 <script>
