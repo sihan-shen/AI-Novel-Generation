@@ -903,6 +903,50 @@
             .nav-inner { padding: 0 1rem; }
             .page-header { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
         }
+
+        /* ============================================================
+           Toast Notifications
+           ============================================================ */
+        .toast {
+            pointer-events: auto;
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.8125rem;
+            line-height: 1.4;
+            box-shadow: var(--shadow-lg);
+            animation: toastIn 0.3s ease;
+            max-width: 360px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .toast-success { background: #065f46; color: #fff; }
+        .toast-error { background: #991b1b; color: #fff; }
+        .toast-info { background: var(--bg-card); color: var(--text); border: 1px solid var(--border); }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ============================================================
+           HTMX Loading Indicators
+           ============================================================ */
+        .htmx-request { opacity: 0.7; pointer-events: none; }
+        .htmx-request .btn-text { display: none; }
+        .htmx-request .btn-loading { display: inline; }
+        .spinner {
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -933,6 +977,9 @@
         {% block content %}{% endblock %}
     </main>
 
+    <!-- Toast Container -->
+    <div id="toast-container" style="position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;display:flex;flex-direction:column;gap:0.5rem;pointer-events:none;"></div>
+
     <script>
         // ===== Theme System =====
         function toggleTheme() {
@@ -950,26 +997,38 @@
         }
         updateThemeIcon(localStorage.getItem('novelforge-theme') || 'light');
 
-        // Close modal on overlay click
-        document.addEventListener('click', function(e) {
-            if (e.target.matches('.modal-overlay')) {
-                e.target.remove();
+        // ===== Toast Notifications =====
+        function showToast(message, type) {
+            type = type || 'info';
+            var container = document.getElementById('toast-container');
+            if (!container) return;
+            var el = document.createElement('div');
+            el.className = 'toast toast-' + type;
+            el.textContent = message;
+            container.appendChild(el);
+            setTimeout(function() {
+                el.style.opacity = '0';
+                el.style.transition = 'opacity 0.3s';
+                setTimeout(function() { el.remove(); }, 300);
+            }, 3000);
+        }
+
+        // ===== HTMX Global Event Handlers =====
+        document.addEventListener('htmx:afterRequest', function(evt) {
+            var method = (evt.detail.requestConfig && evt.detail.requestConfig.method) || '';
+            if (evt.detail.successful && ['POST','PUT','DELETE'].indexOf(method.toUpperCase()) >= 0) {
+                var path = evt.detail.pathInfo && evt.detail.pathInfo.requestPath || '';
+                if (path.includes('/stream') || path.includes('/chat') || path.includes('/reorder')) return;
+                var text = evt.detail.xhr && evt.detail.xhr.responseText || '';
+                if (text.length < 5) return;
+                showToast('操作成功', 'success');
             }
         });
-
-        // Enable HTMX history fix for browser back/forward
-        document.addEventListener('htmx:beforeSwap', function(evt) {
-            if (evt.detail.target && evt.detail.target.id === 'chat-messages') {
-                // Re-render markdown in loaded chat messages
-                setTimeout(function() {
-                    document.querySelectorAll('.md-rendered').forEach(function(el) {
-                        if (!el.dataset.rendered && typeof marked !== 'undefined') {
-                            el.innerHTML = marked.parse(el.textContent);
-                            el.dataset.rendered = 'true';
-                        }
-                    });
-                }, 50);
-            }
+        document.addEventListener('htmx:responseError', function(evt) {
+            showToast('请求失败，请重试', 'error');
+        });
+        document.addEventListener('htmx:sendError', function(evt) {
+            showToast('网络连接失败，请检查网络', 'error');
         });
     </script>
 </body>
