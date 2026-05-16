@@ -1,14 +1,84 @@
 <div style="height: 100%; display: flex; flex-direction: column;">
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-light);">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-light); gap: 0.75rem;">
         <input type="text" name="title" value="{{ chapter.title }}"
-               class="heading" style="border: none; outline: none; background: transparent; width: 100%; padding: 0;"
+               class="heading" style="border: none; outline: none; background: transparent; flex: 1; padding: 0;"
                hx-put="/project/{{ chapter.project_id }}/writer/{{ chapter.id }}"
                hx-trigger="change" hx-include="closest div"
                placeholder="无标题章节">
+        <button onclick="generateChapterContent('{{ chapter.project_id }}', '{{ chapter.id }}', '{{ chapter.outline_id }}')"
+                class="btn btn-ghost" style="padding: 0.25rem 0.625rem; font-size: 0.75rem; flex-shrink: 0;"
+                title="AI 根据细纲生成正文">✦ AI 生成</button>
     </div>
-    <textarea name="content"
+    <textarea id="chapter-content" name="content"
               style="flex: 1; width: 100%; border: none; outline: none; resize: none; font-family: var(--font-body); font-size: 1rem; line-height: 1.8; color: var(--text); background: transparent; padding: 0;"
               placeholder="开始写作..."
               hx-put="/project/{{ chapter.project_id }}/writer/{{ chapter.id }}"
               hx-trigger="changed delay:2s" hx-include="[name='title']">{{ chapter.content }}</textarea>
 </div>
+
+<script>
+function generateChapterContent(projectId, chapterId, outlineId) {
+    var title = document.querySelector('#editor-area .heading').value || '未命名章节';
+    var textarea = document.getElementById('chapter-content');
+    if (!textarea) return;
+
+    var sections = [];
+    // Try to load sections from outline tree
+    var outlineItems = document.getElementById('outline-items');
+    if (outlineItems && outlineId) {
+        var after = false;
+        outlineItems.querySelectorAll('[draggable]').forEach(function(el) {
+            if (el.dataset.id === outlineId) { after = true; return; }
+            if (!after) return;
+            if (el.dataset.level === '1') { after = false; return; }
+            if (el.dataset.level === '3') {
+                var titleEl = el.querySelector('span[style*=\"font-weight:500\"]');
+                sections.push({title: titleEl ? titleEl.textContent.trim() : '', summary: '', notes: ''});
+            }
+        });
+    }
+
+    textarea.placeholder = '正在生成...';
+    textarea.value = '';
+
+    var fullContent = '';
+    fetch('/project/' + projectId + '/outline/generate/content', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({chapter_title: title, sections: sections}),
+    })
+    .then(function(r) {
+        var reader = r.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = '';
+        function read() {
+            return reader.read().then(function(result) {
+                if (result.done) {
+                    // Trigger save
+                    textarea.dispatchEvent(new Event('input', {bubbles: true}));
+                    return;
+                }
+                buffer += decoder.decode(result.value, {stream: true});
+                var lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                for (var i = 0; i < lines.length; i++) {
+                    var l = lines[i].trim();
+                    if (l.startsWith('data: ')) {
+                        var d = l.slice(6);
+                        if (d === '[DONE]') continue;
+                        try { var p = JSON.parse(d); if (p.content) fullContent += p.content; } catch(e) {}
+                    }
+                }
+                textarea.value = fullContent;
+                textarea.style.height = 'auto';
+                textarea.style.height = textarea.scrollHeight + 'px';
+                return read();
+            });
+        }
+        return read();
+    })
+    .catch(function() {
+        textarea.placeholder = '生成失败，请重试';
+    });
+}
+</script>
