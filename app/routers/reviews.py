@@ -45,19 +45,26 @@ async def run_review(project_id: str, request: Request, db: Session = Depends(ge
 
 @router.get("/{review_id}")
 async def review_detail(review_id: str, request: Request, db: Session = Depends(get_db)):
-    import json
+    import json as j
     review = ReviewService.get_review(db, review_id)
     if not review:
         return HTMLResponse("Not found", 404)
-    review_data = {
-        "id": review.id,
-        "scope": review.scope,
-        "status": review.status,
-        "created_at": review.created_at,
-        "summary": json.loads(review.summary) if isinstance(review.summary, str) else review.summary,
-        "findings": json.loads(review.findings) if isinstance(review.findings, str) else review.findings,
-    }
-    return templates.TemplateResponse(request, "review/_detail.html", {"review": review_data})
+    # Parse JSON fields
+    findings = []
+    if review.findings and review.findings != '[]':
+        try:
+            findings = j.loads(review.findings)
+        except (j.JSONDecodeError, ValueError):
+            findings = []
+    summary = {}
+    if review.summary and review.summary != '{}':
+        try:
+            summary = j.loads(review.summary)
+        except (j.JSONDecodeError, ValueError):
+            summary = {}
+    return templates.TemplateResponse(request, "review/_detail.html", {
+        "review": review, "findings": findings, "summary": summary,
+    })
 
 
 @router.get("/list")

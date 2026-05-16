@@ -67,6 +67,21 @@ function newSession() {
     }
 })();
 
+// Auto-scroll to bottom when messages are restored from sessionStorage
+(function() {
+    var msgs = JSON.parse(sessionStorage.getItem('brainstorm_messages') || '[]');
+    if (msgs.length > 0) {
+        setTimeout(scrollToBottom, 100);
+    }
+})();
+
+// Global HTMX listener: auto-scroll chat messages after swap
+document.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.target && (evt.target.id === 'chat-messages' || evt.detail.target && evt.detail.target.id === 'chat-messages')) {
+        setTimeout(scrollToBottom, 100);
+    }
+});
+
 function triggerExtract() {
     var projectId = document.getElementById('save-project-select').value;
     if (!projectId) { alert('请选择目标项目'); return; }

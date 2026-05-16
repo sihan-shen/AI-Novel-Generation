@@ -31,10 +31,14 @@ async def outline_tree(project_id: str, request: Request, db: Session = Depends(
 
 
 @router.get("/new-item")
-async def new_outline_form(project_id: str, request: Request, parent_id: str | None = None, level: int = 1):
+async def new_outline_form(project_id: str, request: Request, parent_id: str | None = None, level: int = 1, parent_title: str = "", db: Session = Depends(get_db)):
+    if parent_id and not parent_title:
+        parent = OutlineService.get(db, parent_id)
+        parent_title = parent.title if parent else ""
     return templates.TemplateResponse(request, "outline/_form.html", {
         "project_id": project_id, "parent_id": parent_id, "level": level,
         "is_edit": False, "item": None, "post_url": f"/project/{project_id}/outline/create",
+        "parent_title": parent_title,
     })
 
 

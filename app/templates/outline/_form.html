@@ -1,7 +1,7 @@
 <div class="modal-overlay">
     <div class="modal-content" style="width: 100%; max-width: 440px; padding: 1.75rem;" onclick="event.stopPropagation()">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
-            <h2 class="heading" style="margin: 0;">{{ "编辑" if is_edit else "新建" }}大纲项</h2>
+            <h2 class="heading" style="margin: 0;">{{ "编辑" if is_edit else "在 " + parent_title + " 下" if parent_title else "新建" }}大纲项</h2>
             <button type="button" onclick="this.closest('.modal-overlay').remove()"
                     class="btn-icon">✕</button>
         </div>
