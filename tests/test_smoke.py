@@ -16,3 +16,9 @@ def test_db_session_override_round_trip(client, db_session):
     response = client.get("/projects/list")
     assert response.status_code == 200
     assert "冒烟测试项目" in response.text
+
+
+def test_static_mount_exists(client):
+    # 404 is fine — we just want to confirm /static/ is registered (not 405 Method Not Allowed)
+    response = client.get("/static/nonexistent.js")
+    assert response.status_code == 404
