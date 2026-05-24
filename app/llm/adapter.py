@@ -69,15 +69,23 @@ def get_adapter(db: Any = None) -> LLMAdapter:
     raise ValueError(f"Unknown LLM provider: {provider}")
 
 
-def record_usage(db: Any, model: str, usage: dict, scenario: str = ""):
-    from app.models.token_usage import TokenUsage
+def record_usage(db: Any, model: str, usage: dict, scenario: str = "",
+                 prompt: str = "", response: str = "", duration_ms: int | None = None,
+                 project_id: str | None = None):
+    """Record an AI call. No-op if usage is empty."""
+    from app.models.ai_call import AICall
     if not usage:
         return
-    record = TokenUsage(
+    record = AICall(
         model=model,
         input_tokens=usage.get("input_tokens", 0),
         output_tokens=usage.get("output_tokens", 0),
         scenario=scenario,
+        prompt=prompt or "",
+        response=response or "",
+        duration_ms=duration_ms,
+        status="success",
+        project_id=project_id,
     )
     db.add(record)
     db.commit()
