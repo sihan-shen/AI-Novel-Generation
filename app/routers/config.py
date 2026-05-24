@@ -24,7 +24,7 @@ async def config_page(request: Request, db: Session = Depends(get_db)):
 async def config_save(request: Request, db: Session = Depends(get_db)):
     form = await request.form()
     items = {}
-    for key in ("llm_provider", "api_key", "base_url", "model"):
+    for key in ("llm_provider", "api_key", "base_url", "model", "host", "port"):
         if key in form:
             items[key] = form[key]
     ConfigService.set_many(db, items)
