@@ -55,3 +55,41 @@ def test_ai_call_error_status(db_session):
     db_session.refresh(call)
     assert call.status == "error"
     assert call.error_message == "rate limit"
+
+
+from sqlalchemy import text
+from app.migrations import m001_token_usage_to_ai_call
+
+
+def test_migration_copies_token_usage_rows(db_session):
+    engine = db_session.get_bind()
+    with engine.begin() as conn:
+        conn.execute(text(
+            "INSERT INTO token_usage (id, model, input_tokens, output_tokens, scenario, created_at) "
+            "VALUES ('t1', 'claude', 100, 50, 'writing', '2026-05-17 10:00:00')"
+        ))
+
+    m001_token_usage_to_ai_call.run(engine)
+
+    with engine.connect() as conn:
+        row = conn.execute(text("SELECT * FROM ai_call WHERE id='t1'")).fetchone()
+        assert row is not None
+        assert row.model == "claude"
+        assert row.input_tokens == 100
+        assert row.scenario == "writing"
+
+
+def test_migration_is_idempotent(db_session):
+    engine = db_session.get_bind()
+    with engine.begin() as conn:
+        conn.execute(text(
+            "INSERT INTO token_usage (id, model, input_tokens, output_tokens, scenario, created_at) "
+            "VALUES ('t2', 'gpt', 100, 50, 'review', '2026-05-17 10:00:00')"
+        ))
+
+    m001_token_usage_to_ai_call.run(engine)
+    m001_token_usage_to_ai_call.run(engine)  # second call should be a no-op
+
+    with engine.connect() as conn:
+        rows = conn.execute(text("SELECT * FROM ai_call WHERE id='t2'")).fetchall()
+        assert len(rows) == 1

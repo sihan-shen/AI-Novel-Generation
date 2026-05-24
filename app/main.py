@@ -29,6 +29,9 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 def on_startup():
     os.makedirs(BASE_DIR.parent / "data", exist_ok=True)
     init_db()
+    from app.migrations import m001_token_usage_to_ai_call
+    from app.database import engine
+    m001_token_usage_to_ai_call.run(engine)
 
 
 @app.get("/", response_class=HTMLResponse)
