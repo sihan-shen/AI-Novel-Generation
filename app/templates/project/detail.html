@@ -1,5 +1,14 @@
 {% extends "base.html" %}
 {% block title %}{{ project.title }} - Novel Forge{% endblock %}
+
+{% block breadcrumb %}
+  {% set crumbs = [
+    {"title": "项目", "href": "/"},
+    {"title": project.title, "href": none},
+  ] %}
+  {% include "_breadcrumb.html" %}
+{% endblock %}
+
 {% block content %}
 <div class="card-elevated animate-slide-up" style="padding: 1.75rem; margin-bottom: 2rem;">
     <div style="display: flex; align-items: flex-start; justify-content: space-between;">

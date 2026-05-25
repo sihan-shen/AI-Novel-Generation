@@ -1,5 +1,15 @@
 {% extends "base.html" %}
 {% block title %}写作 - {{ project.title }}{% endblock %}
+
+{% block breadcrumb %}
+  {% set crumbs = [
+    {"title": "项目", "href": "/"},
+    {"title": project.title, "href": "/projects/" ~ project.id},
+    {"title": "写作", "href": none},
+  ] %}
+  {% include "_breadcrumb.html" %}
+{% endblock %}
+
 {% block content %}
 <div style="display: flex; gap: 1.25rem; height: calc(100vh - 8rem);" class="animate-fade-in">
 

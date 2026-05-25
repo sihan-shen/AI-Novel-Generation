@@ -1,5 +1,14 @@
 {% extends "base.html" %}
 {% block title %}头脑风暴{% endblock %}
+
+{% block breadcrumb %}
+  {% set crumbs = [
+    {"title": "工具", "href": "/"},
+    {"title": "头脑风暴", "href": none},
+  ] %}
+  {% include "_breadcrumb.html" %}
+{% endblock %}
+
 {% block content %}
 <div style="display: flex; gap: 1.25rem; height: calc(100vh - 8rem);" class="animate-fade-in">
 
