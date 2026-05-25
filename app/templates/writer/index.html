@@ -52,5 +52,12 @@
 function toggleWriterSidebar() {
     document.getElementById('writer-sidebar').classList.toggle('open');
 }
+window.RecentItems && window.RecentItems.record({
+    type: 'writer',
+    id: 'project-{{ project.id }}',
+    title: {{ (project.title ~ ' · 写作')|tojson }},
+    project_id: '{{ project.id }}',
+    project_title: {{ project.title|tojson }},
+});
 </script>
 {% endblock %}

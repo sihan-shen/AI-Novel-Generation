@@ -43,4 +43,14 @@
      hx-trigger="load" hx-swap="innerHTML">
     加载中...
 </div>
+
+<script>
+window.RecentItems && window.RecentItems.record({
+    type: 'settings',
+    id: 'project-{{ project.id }}',
+    title: {{ (project.title ~ ' · 设定集')|tojson }},
+    project_id: '{{ project.id }}',
+    project_title: {{ project.title|tojson }},
+});
+</script>
 {% endblock %}

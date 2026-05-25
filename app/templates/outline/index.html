@@ -41,4 +41,14 @@
          hx-get="/project/{{ project.id }}/outline/tree" hx-trigger="load" hx-swap="innerHTML">
     </div>
 </div>
+
+<script>
+window.RecentItems && window.RecentItems.record({
+    type: 'outline',
+    id: 'project-{{ project.id }}',
+    title: {{ (project.title ~ ' · 大纲')|tojson }},
+    project_id: '{{ project.id }}',
+    project_title: {{ project.title|tojson }},
+});
+</script>
 {% endblock %}

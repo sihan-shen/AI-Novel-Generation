@@ -51,4 +51,14 @@
         <div class="desc">自动审阅</div>
     </a>
 </div>
+
+<script>
+window.RecentItems && window.RecentItems.record({
+    type: 'project',
+    id: '{{ project.id }}',
+    title: {{ project.title|tojson }},
+    project_id: '{{ project.id }}',
+    project_title: {{ project.title|tojson }},
+});
+</script>
 {% endblock %}
