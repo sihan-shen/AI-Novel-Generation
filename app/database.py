@@ -15,7 +15,7 @@ Base = declarative_base()
 
 def init_db():
     """Import all models so Base has them registered, then create tables."""
-    from app.models import project, outline, setting, chapter, style, review, idea, ai_call  # noqa
+    from app.models import project, outline, setting, chapter, style, review, idea, ai_call, agent_task, agent_message  # noqa
     Base.metadata.create_all(bind=engine)
 
 
