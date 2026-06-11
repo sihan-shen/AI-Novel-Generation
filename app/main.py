@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from sqlalchemy import text
 from app.database import init_db
 from app.routers import projects, outlines, settings, chapters, brainstorming, styles, reviews, ideas, config, outline_gen, search, agent
 
@@ -34,6 +35,42 @@ def on_startup():
     from app.migrations import m001_token_usage_to_ai_call
     from app.database import engine
     m001_token_usage_to_ai_call.run(engine)
+    _recover_agent_tasks()
+
+
+def _recover_agent_tasks():
+    """Recover agent tasks that were interrupted by a restart."""
+    from app.models.agent_task import AgentTask
+    from app.database import SessionLocal
+    db = SessionLocal()
+    try:
+        running_tasks = db.query(AgentTask).filter(
+            AgentTask.status.in_(["running", "waiting_user"])
+        ).all()
+        for task in running_tasks:
+            if task.status == "waiting_user":
+                task.status = "cancelled"
+                task.completed_at = None
+                from datetime import datetime
+                task.completed_at = datetime.utcnow()
+            else:
+                task.status = "failed"
+            task.orchestrator_state = "CANCELLED"
+            db.commit()
+            from app.models.agent_message import AgentMessage
+            import uuid
+            msg = AgentMessage(
+                id=str(uuid.uuid4()),
+                task_id=task.id,
+                role="system",
+                content=f"Task auto-cancelled on server restart. Previous state: {task.orchestrator_state}",
+                message_type="error",
+                sequence=9999,
+            )
+            db.add(msg)
+            db.commit()
+    finally:
+        db.close()
 
 
 @app.get("/", response_class=HTMLResponse)
