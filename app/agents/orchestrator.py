@@ -1,5 +1,6 @@
-"""Orchestrator — state machine that coordinates agent execution."""
+"""Orchestrator — full state machine with WRITING→REVIEWING→FIXING_SETTINGS→REWRITING loop."""
 
+import json
 from enum import Enum
 import logging
 from app.agents.blackboard import Blackboard
@@ -20,12 +21,13 @@ class OrchestratorState(str, Enum):
 
 
 class Orchestrator:
-    def __init__(self, db, blackboard: Blackboard, adapter):
+    def __init__(self, db, blackboard: Blackboard, adapter, task_id: str | None = None):
         self.db = db
         self.blackboard = blackboard
         self.adapter = adapter
         self.state = OrchestratorState.IDLE
         self._project_id = blackboard.project_id
+        self._task_id = task_id
 
     async def run(self) -> OrchestratorState:
         self.state = OrchestratorState.GATHERING_CONTEXT
@@ -36,7 +38,11 @@ class Orchestrator:
             elif self.state == OrchestratorState.WRITING:
                 self.state = await self._run_writer()
             elif self.state == OrchestratorState.REVIEWING:
-                self.state = OrchestratorState.DONE
+                self.state = await self._run_reviewer()
+            elif self.state == OrchestratorState.FIXING_SETTINGS:
+                self.state = await self._run_settings_mgr()
+            elif self.state == OrchestratorState.REWRITING:
+                self.state = await self._run_rewriter()
             elif self.state == OrchestratorState.DONE:
                 self.state = self._done()
             elif self.state == OrchestratorState.WAITING_USER:
@@ -66,12 +72,51 @@ class Orchestrator:
         from app.agents.base import run_agent
         from app.agents.agents.writer import build_writer_config
         self.blackboard.emit_event({"type": "agent_start", "agent": "writer", "task": self.blackboard.task.get("chapter_outline_id", ""), "sequence": 1})
-        config = build_writer_config(db=self.db, project_id=self._project_id, blackboard=self.blackboard, write_mode=self.blackboard.autonomy_config.write_mode)
+        config = build_writer_config(db=self.db, project_id=self._project_id, blackboard=self.blackboard, write_mode=self.blackboard.autonomy_config.write_mode, task_id=self._task_id)
         result = await run_agent(config, self.blackboard, self.adapter)
         if self.blackboard.current_draft:
             self.blackboard.emit_event({"type": "agent_output", "agent": "writer", "type": "chapter_draft", "preview": self.blackboard.current_draft[:200], "sequence": 99})
+        return OrchestratorState.REVIEWING
+
+    async def _run_reviewer(self) -> OrchestratorState:
+        from app.agents.base import run_agent
+        from app.agents.agents.reviewer import build_reviewer_config
+        chapter_id = self.blackboard.current_chapter_id
+        if not chapter_id:
+            return OrchestratorState.DONE
+        self.blackboard.emit_event({"type": "agent_start", "agent": "reviewer", "task": chapter_id, "sequence": 100})
+        config = build_reviewer_config(db=self.db, project_id=self._project_id, chapter_id=chapter_id, blackboard=self.blackboard, write_mode=self.blackboard.autonomy_config.write_mode, task_id=self._task_id)
+        result = await run_agent(config, self.blackboard, self.adapter)
+        overall = 5.0
+        try:
+            review_dict = json.loads(result.output) if result.output else {}
+            overall = review_dict.get("overall_score", 5.0)
+        except (json.JSONDecodeError, TypeError):
+            pass
+        self.blackboard.last_review = {"overall_score": overall}
+        self.blackboard.emit_event({"type": "agent_output", "agent": "reviewer", "type": "review_result", "data": {"overall_score": overall}, "sequence": 110})
+        if overall < 2.5 and self.blackboard.rewrite_round < self.blackboard.autonomy_config.max_rewrite_rounds:
+            self.blackboard.rewrite_round += 1
+            self.blackboard.emit_event({"type": "orchestrator_thought", "text": f"审阅分数{overall}，低于阈值2.5，进入第{self.blackboard.rewrite_round}轮重写", "sequence": 111})
+            return OrchestratorState.REWRITING
+        elif overall < 2.5:
+            self.blackboard.emit_event({"type": "orchestrator_thought", "text": f"审阅分数{overall}，已达最大重写轮次，进入人工决策", "sequence": 112})
+            return OrchestratorState.WAITING_USER
+        if self.blackboard.pending_setting_changes:
+            return OrchestratorState.FIXING_SETTINGS
         return OrchestratorState.DONE
 
+    async def _run_settings_mgr(self) -> OrchestratorState:
+        from app.agents.base import run_agent
+        from app.agents.agents.settings_mgr import build_settings_mgr_config
+        self.blackboard.emit_event({"type": "agent_start", "agent": "settings_mgr", "task": "", "sequence": 200})
+        config = build_settings_mgr_config(db=self.db, project_id=self._project_id, blackboard=self.blackboard, write_mode=self.blackboard.autonomy_config.write_mode, task_id=self._task_id)
+        result = await run_agent(config, self.blackboard, self.adapter)
+        return OrchestratorState.REWRITING
+
+    async def _run_rewriter(self) -> OrchestratorState:
+        return await self._run_writer()
+
     def _done(self) -> OrchestratorState:
-        self.blackboard.emit_event({"type": "task_complete", "task_id": "", "summary": "写作任务完成", "sequence": 999})
+        self.blackboard.emit_event({"type": "task_complete", "task_id": self._task_id or "", "summary": "写作任务完成", "sequence": 999})
         return OrchestratorState.IDLE
