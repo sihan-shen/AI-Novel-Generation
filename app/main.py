@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.database import init_db
-from app.routers import projects, outlines, settings, chapters, brainstorming, styles, reviews, ideas, config, outline_gen, search
+from app.routers import projects, outlines, settings, chapters, brainstorming, styles, reviews, ideas, config, outline_gen, search, agent
 
 app = FastAPI(title="AI Novel Generation Tool")
 BASE_DIR = Path(__file__).parent
@@ -22,6 +22,7 @@ app.include_router(ideas.router)
 app.include_router(config.router)
 app.include_router(outline_gen.router)
 app.include_router(search.router)
+app.include_router(agent.router)
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
