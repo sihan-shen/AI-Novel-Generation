@@ -2,8 +2,33 @@
 
 import asyncio
 import json
+import re
 from app.agents.base import AgentStep
 from app.agents.autonomy import AutonomyConfig
+
+# Known separators that could break out of prompt structure
+_DANGEROUS_PATTERNS = [
+    (r'<\|SYSTEM\|>', '[SYSTEM_ESCAPED]'),
+    (r'<\|END\|>', '[END_ESCAPED]'),
+    (r'</?SYSTEM>', '[SYSTEM_TAG]'),
+    (r'</?ASSISTANT>', '[ASSISTANT_TAG]'),
+    (r'</?USER>', '[USER_TAG]'),
+    (r'\[INST\]', '[INST_TOKEN]'),
+    (r'\[/INST\]', '[/INST_TOKEN]'),
+]
+
+
+def _sanitize(text: str) -> str:
+    """Sanitize user data before injecting into prompt context.
+
+    Replaces known delimiter patterns with safe ASCII escape sequences
+    to prevent prompt injection attacks.
+    """
+    if not text:
+        return text
+    for pattern, replacement in _DANGEROUS_PATTERNS:
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+    return text
 
 
 def _rough_token_count(text: str) -> int:
@@ -52,9 +77,9 @@ class Blackboard:
 
     def set_project_context(self, meta: dict, settings: str, outline: str, style: str) -> None:
         self._project_meta = meta
-        self._settings_context = settings
-        self._outline_context = outline
-        self._style_context = style
+        self._settings_context = _sanitize(settings)
+        self._outline_context = _sanitize(outline)
+        self._style_context = _sanitize(style)
 
     def get_context_for(self, agent_type: str) -> str:
         parts = [f"=== 项目信息 ===\n项目ID: {self.project_id}\n状态: {self.orchestrator_state}"]
