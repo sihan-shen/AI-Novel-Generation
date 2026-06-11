@@ -20,6 +20,10 @@ class Setting(Base):
     status = Column(String, default="active")
     version = Column(Integer, default=1)
     tags = Column(Text, default="[]")  # JSON array
+    proposed_by_type = Column(String, nullable=True)
+    proposed_by_task_id = Column(String, ForeignKey("agent_tasks.id"), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    change_summary = Column(Text, default="")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

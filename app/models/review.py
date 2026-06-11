@@ -14,5 +14,7 @@ class Review(Base):
     summary = Column(Text, default="{}")  # JSON
     findings = Column(Text, default="[]")  # JSON array
     status = Column(String, default="pending")
+    triggered_by_type = Column(String, nullable=True)
+    triggered_by_task_id = Column(String, ForeignKey("agent_tasks.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

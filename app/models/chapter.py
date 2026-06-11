@@ -16,6 +16,9 @@ class Chapter(Base):
     status = Column(String, default="draft")
     word_count = Column(Integer, default=0)
     notes = Column(Text, default="")
+    generated_by_type = Column(String, nullable=True)
+    generated_by_task_id = Column(String, ForeignKey("agent_tasks.id"), nullable=True)
+    generation_prompt = Column(Text, default="")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
