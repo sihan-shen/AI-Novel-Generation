@@ -30,6 +30,7 @@ class Orchestrator:
         self._task_id = task_id
 
     async def run(self) -> OrchestratorState:
+        logger.info(f"Orchestrator started for project {self._project_id}", extra={"state": "start", "project_id": self._project_id})
         self.state = OrchestratorState.GATHERING_CONTEXT
         while self.state not in (OrchestratorState.IDLE, OrchestratorState.DONE, OrchestratorState.CANCELLED):
             self.blackboard.orchestrator_state = self.state.value
@@ -50,13 +51,18 @@ class Orchestrator:
             else:
                 self.state = OrchestratorState.IDLE
         self.blackboard.orchestrator_state = self.state.value
+        logger.info(f"Orchestrator finished: {self.state.value}", extra={"state": "end", "project_id": self._project_id, "final_state": self.state.value})
         return self.state
 
     def _gathering_context(self) -> OrchestratorState:
+        logger.info("orchestrator.state", extra={"state": self.state.value, "project_id": self._project_id})
         self.blackboard.emit_event({"type": "orchestrator_thought", "text": "正在收集设定和大纲上下文...", "step": 0, "sequence": 0})
         try:
             from app.services.project_service import ProjectService
             project = ProjectService.get(self.db, self._project_id)
+            if not project:
+                self.blackboard.emit_event({"type": "error", "message": "项目不存在或已被删除", "sequence": 1})
+                return OrchestratorState.IDLE
             if project:
                 self.blackboard.set_project_context(meta={"genre": project.genre, "status": project.status}, settings="", outline="", style="")
             from app.services.setting_service import SettingService
@@ -69,6 +75,7 @@ class Orchestrator:
         return OrchestratorState.WRITING
 
     async def _run_writer(self) -> OrchestratorState:
+        logger.info("orchestrator.state", extra={"state": self.state.value, "project_id": self._project_id})
         from app.agents.base import run_agent
         from app.agents.agents.writer import build_writer_config
         self.blackboard.emit_event({"type": "agent_start", "agent": "writer", "task": self.blackboard.task.get("chapter_outline_id", ""), "sequence": 1})
@@ -79,6 +86,7 @@ class Orchestrator:
         return OrchestratorState.REVIEWING
 
     async def _run_reviewer(self) -> OrchestratorState:
+        logger.info("orchestrator.state", extra={"state": self.state.value, "project_id": self._project_id})
         from app.agents.base import run_agent
         from app.agents.agents.reviewer import build_reviewer_config
         chapter_id = self.blackboard.current_chapter_id
@@ -118,5 +126,6 @@ class Orchestrator:
         return await self._run_writer()
 
     def _done(self) -> OrchestratorState:
+        logger.info("orchestrator.state", extra={"state": self.state.value, "project_id": self._project_id})
         self.blackboard.emit_event({"type": "task_complete", "task_id": self._task_id or "", "summary": "写作任务完成", "sequence": 999})
         return OrchestratorState.IDLE
