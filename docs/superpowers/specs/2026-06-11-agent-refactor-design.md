@@ -1,8 +1,8 @@
 # Agent 化重构设计文档
 
-> 版本：v1.2
+> 版本：v1.3
 > 日期：2026-06-11
-> 状态：设计完成，已通过审阅（第二轮修订）
+> 状态：设计完成，已通过审阅（第三轮修订）
 
 ---
 
@@ -409,6 +409,8 @@ Orchestrator 采用**单队列串行调度**——同一时间只有一个 Agent
 
 三个 Agent 之间没有直接的 Agent-to-Agent 通信。Writer 产出写入 Blackboard → Orchestrator 读取结果 → Orchestrator 决定是否调 Reviewer → Reviewer 产出写入 Blackboard → Orchestrator 读取结果 → 决定是否调 Setting Manager。
 
+**`GATHERING_CONTEXT` 状态说明**：状态机转换到 `GATHERING_CONTEXT` 时，Orchestrator 执行一次同步的上下文收集操作（非 LLM 调用）——从数据库读取项目元信息、相关设定、大纲上下文、文风配置，组装为 Blackboard 持久层数据。此状态不产生独立的 Agent 运行，不消耗 token。完成后自动进入 `WRITING`。在 SSE 事件流中，此状态仅产生一条 `orchestrator_thought` 事件（如"正在收集设定和大纲上下文..."），无 `agent_start` 事件。
+
 ### 6.2 状态机
 
 ```
@@ -486,6 +488,8 @@ Transitions:
 - `confirm_request`：暂停 Agent 循环等待用户决策（阻断式），回复后 Agent 继续执行
 - `pending_suggestion`：不暂停循环，Agent 继续执行，但建议内容保存在 `agent_messages.metadata` 中，用户可以稍后回来批量查看和应用。Agent 产出卡片底部附带"此建议尚未写入，点击应用生效"的提示
 
+**非阻断模式的已知 trade-off**：`pending_suggestion` 不阻断 Agent 意味着 Setting Manager 可能在用户审批前就提议了新设定，而 Writer 的后续章节可能已经基于这个"悬空"建议开始写作。如果用户最终拒绝该建议，已写的内容可能包含了基于被拒设定的情节。这是流畅体验与数据一致性之间的权衡——非阻断避免了频繁的等待确认，代价是偶尔需要回滚。缓解措施：Agent 产出卡片中标注"本章涉及以下待审批建议"，提醒用户在最终发布前检查；`task_complete` 事件携带 `suggestions` 数组，让用户在任务完成后可以批量审核。
+
 ### 7.4 SSE 事件流
 
 ```
@@ -529,6 +533,13 @@ CREATE TABLE agent_tasks (
         'running', 'paused', 'waiting_user', 'completed', 'failed', 'cancelled'
     )),
     total_steps INTEGER DEFAULT 0,
+    total_tokens INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP
+);
+CREATE INDEX agent_tasks_project ON agent_tasks(project_id);
+CREATE INDEX agent_tasks_created ON agent_tasks(created_at DESC);
+CREATE INDEX agent_tasks_status ON agent_tasks(status);  -- 启动恢复扫描用
 ```
 
 **`orchestrator_state` 与 `status` 的映射**（由 Orchestrator 在状态转换时同步写入，单次事务保证一致）：
@@ -549,17 +560,6 @@ CREATE TABLE agent_tasks (
 
 `running` 是唯一覆盖多个 `orchestrator_state` 的 status 值——因为从外部视角看，Agent 在执行中就是 running，内部的 WRITING/REVIEWING 是状态机细节。
 
-```sql
-    total_steps INTEGER DEFAULT 0,
-    total_tokens INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    completed_at TIMESTAMP
-);
-CREATE INDEX agent_tasks_project ON agent_tasks(project_id);
-CREATE INDEX agent_tasks_created ON agent_tasks(created_at DESC);
-CREATE INDEX agent_tasks_status ON agent_tasks(status);  -- 启动恢复扫描用
-```
-
 **`agent_messages`**：
 
 ```sql
@@ -572,7 +572,7 @@ CREATE TABLE agent_messages (
     content TEXT NOT NULL,
     message_type TEXT NOT NULL DEFAULT 'text' CHECK (message_type IN (
         'text', 'tool_call', 'tool_result', 'agent_output',
-        'confirm_request', 'confirm_response', 'error'
+        'confirm_request', 'confirm_response', 'pending_suggestion', 'error'
     )),
     metadata JSON,
     sequence INTEGER NOT NULL DEFAULT 0,  -- 全局递增序号，用于 SSE 断连恢复
@@ -822,4 +822,6 @@ tests/
 | 版本 | 日期 | 变更 |
 |------|------|------|
 | v1.0 | 2026-06-11 | 初始设计 |
-| v1.2 | 2026-06-11 | 第二轮审阅修正：token 估算改用 Claude count_tokens API + 裕量；Tool 增加 idempotent 字段和幂等性要求；suggest 模式增加 pending_suggestion 消息类型和 SSE 事件；orchestrator_state 与 status 映射表 + 同步写入规则；快照保存时机和原子性事务明确；chapters.status CHECK 约束 SQLite 迁移路径说明
+| v1.1 | 2026-06-11 | 第一轮审阅修正：循环守卫、LLM 鲁棒性、确认超时、SSE 断连、Token 预算、审阅评分定义、草稿生命周期、DB schema 严格性、prompt 注入防护、Phase 重排、prompt 版本管理 |
+| v1.2 | 2026-06-11 | 第二轮审阅修正：token 估算改用 Claude count_tokens API + 裕量；Tool 增加 idempotent 字段和幂等性要求；suggest 模式增加 pending_suggestion 消息类型和 SSE 事件；orchestrator_state 与 status 映射表 + 同步写入规则；快照保存时机和原子性事务明确；chapters.status CHECK 约束 SQLite 迁移路径说明 |
+| v1.3 | 2026-06-11 | 第三轮审阅修正：修复 agent_tasks SQL 被映射表格截断的问题；agent_messages.message_type CHECK 约束补上 pending_suggestion；补充 GATHERING_CONTEXT 状态实现说明；文档化 suggest 非阻断模式 trade-off 及缓解措施 |
