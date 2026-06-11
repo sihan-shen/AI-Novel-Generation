@@ -26,6 +26,9 @@ var AgentChat = {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({message: msg, chapter_outline_id: outlineId, target_words: targetWords}),
         }).then(function(response) {
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+            }
             var reader = response.body.getReader();
             var decoder = new TextDecoder();
             var buffer = '';
@@ -56,9 +59,16 @@ var AgentChat = {
                         }
                     }
                     process();
+                }).catch(function(err) {
+                    console.error('Stream error:', err);
                 });
             }
             process();
+        }).catch(function(err) {
+            input.disabled = false;
+            document.getElementById('agent-send-btn').disabled = false;
+            document.getElementById('agent-status').textContent = '连接失败: ' + err.message;
+            document.getElementById('agent-progress').style.display = 'none';
         });
         return false;
     },
