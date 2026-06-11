@@ -18,6 +18,9 @@
     <script src="/static/js/lib/fuse.min.js"></script>
     <script src="/static/js/shortcuts.js"></script>
     <script src="/static/js/recent-items.js"></script>
+    <link rel="stylesheet" href="/static/css/enhancements.css">
+    <script src="/static/js/palette.js"></script>
+    <script src="/static/js/palette-commands.js"></script>
 
     <script>
         (function(){
@@ -1012,6 +1015,7 @@
     <div id="toast-container" style="position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;display:flex;flex-direction:column;gap:0.5rem;pointer-events:none;"></div>
 
     {% include "_shortcuts_help.html" %}
+    {% include "_palette.html" %}
 
     <script>
         // ===== Theme System =====

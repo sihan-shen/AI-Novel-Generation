@@ -123,3 +123,5 @@ Shortcuts.register({ keys: 'g s', group: '跳转', label: '跳转当前项目设
     do: () => window.location.href = `/project/${currentProjectId()}/settings` });
 Shortcuts.register({ keys: 'g r', group: '跳转', label: '跳转当前项目审阅', when: () => !!currentProjectId(),
     do: () => window.location.href = `/project/${currentProjectId()}/review` });
+Shortcuts.register({ keys: 'g a', group: '跳转', label: '跳转当前项目 Agent 写作', when: () => !!currentProjectId(),
+    do: () => window.location.href = `/project/${currentProjectId()}/agent` });
