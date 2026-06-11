@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 from pathlib import Path
@@ -32,6 +32,28 @@ async def config_save(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "config/_form.html", {
         "cfg": cfg, "providers": PROVIDERS, "saved": True,
     })
+
+
+@router.post("/agent-autonomy")
+async def save_agent_autonomy(
+    request: Request,
+    milestone_granularity: str = Form("chapter"),
+    intervention_threshold: str = Form("conflict_only"),
+    write_mode: str = Form("draft"),
+    max_rewrite_rounds: int = Form(3),
+    token_budget: int = Form(100000),
+    db: Session = Depends(get_db),
+):
+    configs = {
+        "agent_milestone_granularity": milestone_granularity,
+        "agent_intervention_threshold": intervention_threshold,
+        "agent_write_mode": write_mode,
+        "agent_max_rewrite_rounds": str(max_rewrite_rounds),
+        "agent_token_budget": str(token_budget),
+    }
+    for key, value in configs.items():
+        ConfigService.set(db, key, value)
+    return HTMLResponse('<div style="color:var(--success);">配置已保存</div>')
 
 
 @router.get("/fetch-models")
