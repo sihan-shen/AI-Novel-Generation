@@ -8,7 +8,6 @@ def verify_api_key():
     """
 
     async def _verify(request: Request) -> None:
-        _ = request.headers.get("X-API-Key")  # Phase 1 placeholder
-        pass
+        _ = request.headers.get("X-API-Key")  # Phase 1 placeholder -- no-op
 
     return _verify

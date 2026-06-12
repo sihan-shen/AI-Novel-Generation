@@ -7,3 +7,8 @@ T = TypeVar("T")
 class APIResponse(BaseModel, Generic[T]):
     data: T
     message: str = "ok"
+
+
+class ErrorResponse(BaseModel):
+    detail: str
+    message: str = "error"
