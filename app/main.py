@@ -1,13 +1,13 @@
 import os
 from pathlib import Path
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from sqlalchemy import text
 from app.database import init_db
-from app.routers import projects, outlines, settings, chapters, brainstorming, styles, reviews, ideas, config, outline_gen, search, agent
+from app.routers import projects, outlines, settings, chapters, styles, reviews, ideas, config, outline_gen, search, agent
 
 app = FastAPI(title="AI Novel Generation Tool")
 BASE_DIR = Path(__file__).parent
@@ -16,7 +16,7 @@ app.include_router(projects.router)
 app.include_router(outlines.router)
 app.include_router(settings.router)
 app.include_router(chapters.router)
-app.include_router(brainstorming.router)
+# app.include_router(brainstorming.router)  # DEPRECATED
 app.include_router(styles.router)
 app.include_router(reviews.router)
 app.include_router(ideas.router)
@@ -24,6 +24,15 @@ app.include_router(config.router)
 app.include_router(outline_gen.router)
 app.include_router(search.router)
 app.include_router(agent.router)
+
+
+@app.get("/brainstorm")
+async def brainstorm_redirect(project_id: str | None = None):
+    """Redirect old /brainstorm page to agent chat."""
+    if project_id:
+        return RedirectResponse(url=f"/project/{project_id}/agent", status_code=302)
+    return RedirectResponse(url="/", status_code=302)
+
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
