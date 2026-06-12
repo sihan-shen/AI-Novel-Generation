@@ -67,7 +67,8 @@ async def run_agent(
     messages[0]["content"] += (
         "\n\nYou MUST respond with valid JSON exactly matching one of these formats:\n"
         f'{{"thought": "<reasoning>", "tool": "<tool_name>", "args": {{...}}}}\n'
-        f'{{"action": "finish", "summary": "<final summary>"}}\n\n'
+        f'{{"action": "finish", "summary": "<final summary>"}}\n'
+        f'{{"action": "handoff", "summary": "<handoff summary>"}}\n\n'
         f"Available tools:\n{tool_schema_desc}"
     )
 
@@ -121,6 +122,15 @@ async def run_agent(
                 output=parsed.get("summary", ""),
                 blackboard_changes={"final_state": blackboard.orchestrator_state},
                 status="completed",
+                retry_count=llm_error_count,
+            )
+
+        if "action" in parsed and parsed["action"] == "handoff":
+            return AgentRunResult(
+                steps=steps,
+                output=parsed.get("summary", ""),
+                blackboard_changes={},
+                status="handoff",
                 retry_count=llm_error_count,
             )
 
