@@ -2,208 +2,202 @@
 
 ## Summary
 
-将现有独立头脑风暴页面（`/brainstorm`）迁移为 Agent 系统内的 Brainstorm Agent。用户在 Agent 聊天页面通过自然语言触发脑暴，Brainstorm Agent 接管对话，结束后归还控制权给主 Orchestrator。
+将现有独立头脑风暴页面（`/brainstorm`）迁移为 Agent Chat 内的 **Brainstorm Conversation Mode**。它使用 Agent 基础设施（SSE、工具、持久化），但本质是一个带特定 system prompt + 工具集的对话模式，而不是 Orchestrator 状态机中的一个 Agent 节点。
 
-## Architecture
+## Why Mode, Not Agent
+
+Brainstorm 的职责是创意讨论和灵感拓展，不负责长链工具调用、不负责复杂执行规划。如果每个对话场景都变成一个独立 Agent（CharacterAgent、WorldbuildingAgent、OutlineAgent...），会导致 Agent 碎片化。实际上它们只是 `prompt + tools` 的组合差异。BrainstormSession 封装这个组合及其生命周期。
+
+## Core Concepts
+
+### BrainstormSession
 
 ```
-User Message → Agent SSE (/project/{id}/agent/chat/stream)
-    ↓
-Orchestrator state == IDLE?
-    ↓
-LLM Intent Detection → {intent: "brainstorm" | "writing" | "other"}
-    ↓
-├─ "writing" → Normal Orchestrator flow (GATHERING_CONTEXT → WRITING → ...)
-├─ "other" → General agent response
-└─ "brainstorm" → state = BRAINSTORMING, active_agent = "brainstorm"
-                        ↓
-                   Brainstorm Agent handles message
-                   (always has project context + brainstorm_history)
-                        ↓
-            ┌─ User continues → WAITING_USER, active_agent = "brainstorm"
-            ├─ /done or frontend button → save full history → IDLE, active_agent = None
-            ├─ User sends writing request → agent wraps up → handoff → normal flow
-            └─ 15min timeout → save draft (full history) → IDLE
+BrainstormSession
+├── session_id: str
+├── project_id: str
+├── status: "active" | "completed" | "cancelled" | "timeout"
+├── history: list[{role, content, tool_calls?}]
+├── pending_saves: list[dict]     # 待确认的灵感，批量确认
+├── created_at: datetime
+├── last_activity: datetime
+├── token_count: int
+└── handoff_depth: int            # 防 ping-pong，上限 3
 ```
 
-## State Machine: `active_agent` Field
+- **持久化到 DB**（复用 `AgentTask` + `AgentMessage`，task_type="brainstorm"）
+- 进程重启后可恢复
+- 多个 timeout session 按 `last_activity` 排序，取最近一个询问恢复
 
-Avoid state explosion. Instead of per-agent states, use a generic `active_agent` field:
+### Single Source of Truth: `active_session`
 
 ```python
-# orchestrator or blackboard
-state: OrchestratorState  # IDLE | GATHERING_CONTEXT | WRITING | REVIEWING |
-                           # FIXING_SETTINGS | REWRITING | BRAINSTORMING |
-                           # WAITING_USER | DONE | CANCELLED
-active_agent: str | None  # "writer" | "reviewer" | "settings_mgr" | "brainstorm" | None
+# Orchestrator / Blackboard
+active_session: BrainstormSession | None
 ```
 
-**Routing rule**: When `state == WAITING_USER`, check `active_agent` to determine who handles the next message. No `previous_state` inference needed.
+- `active_session is None` → 正常 Orchestrator 流程
+- `active_session is not None` → 消息路由到 Brainstorm Session（bypass orchestrator state machine）
+- 不需要在 `OrchestratorState` 中新增 `BRAINSTORMING`。Orchestrator 状态机只处理写作流水线
+- 无 state/active_agent 双重真相问题
+
+### Routing
 
 ```
-IDLE ──(intent: brainstorm)──→ BRAINSTORMING (active_agent="brainstorm")
-  │                                      │
-  │                          ┌─ user continues ──→ WAITING_USER (active_agent="brainstorm")
-  │                          │                          │
-  │                          │              ┌─ next msg ──→ BRAINSTORMING
-  │                          │              └─ /done ──→ IDLE (active_agent=None)
-  │                          │
-  │                          ├─ /done ──→ save full history → IDLE
-  │                          └─ writing request ──→ agent wraps up → IDLE → normal flow
-  │
-  └──(intent: writing)──→ GATHERING_CONTEXT (active_agent="writer") → WRITING → ...
+User Message
+    ↓
+active_session?
+    ├── Yes → BrainstormSession.handle(message)
+    │           ├── /done      → save → active_session = None
+    │           ├── /cancel    → discard history, keep confirmed saves → active_session = None
+    │           ├── timeout    → save draft → active_session = None
+    │           ├── handoff    → save history → active_session = None → re-enter intent detection
+    │           └── otherwise  → Brainstorm response → persist to history
+    │
+    └── No → Orchestrator state == IDLE?
+                ├── Yes → Intent Detection
+                │           ├── "brainstorm" → create BrainstormSession → handle(message)
+                │           └── "writing" / "other" → normal flow
+                └── No → continue orchestrator pipeline
 ```
-
-## Brainstorm as Mode, Not Isolation
-
-Brainstorm Agent 是一个 **模式**，不是强隔离会话。
-
-**规则**：
-- BRAINSTORMING 状态下，消息默认由 Brainstorm Agent 处理
-- 如果用户发出明确的写作请求（"帮我写第一章"），Brainstorm Agent 的 prompt 引导它：
-  1. 简洁总结脑暴成果
-  2. Emit `action: handoff` + 用户原始消息
-  3. Orchestrator 收到 handoff → 保存脑暴历史 → state = IDLE → 将用户消息重新路由到写作流程
-- 用户无需先 `/done` 再发写作请求
-
-**Brainstorm Agent prompt 片段**：
-> 你是创意顾问，只负责头脑风暴。如果用户给出了明确的写作/修改请求（如"写第一章"），请简要总结当前脑暴成果，然后输出 handoff 动作让系统切换回写作模式。不要拒绝用户或要求用户手动切换。
-
-**禁止 Agent 自动 finish**：
-- Agent 不会自己判断"用户得到足够灵感"然后结束
-- 结束只能由用户触发：`/done`、前端按钮、或 timeout
-- Agent 只能在 prompt 中温和提示"如果你觉得差不多了，可以点结束按钮"
 
 ## Intent Detection
 
-单一 LLM 调用，高召回 prompt，覆盖隐含创意需求：
+单一 LLM 调用（小模型，低 temperature），只在 `state == IDLE` 且 `active_session is None` 时：
 
 ```
 用户消息: "{user_message}"
 
-判断用户的意图类别：
-- "brainstorm": 需要创意帮助、灵感拓展、方案探索、设定讨论、剧情构思。
-  包括隐含表达："不知道怎么写"、"不够精彩"、"有什么推荐"、"给我几个方案"、
-  "还能怎么玩"、"主角职业推荐"、"后面怎么发展"、"卡住了"、"没思路"
-- "writing": 明确的写作/修改/生成请求（如"写第一章"、"修改这段"）
-- "other": 以上都不是（闲聊、一般问题、定义询问等）
+判断意图：
+- "brainstorm": 创意帮助、灵感拓展、方案探索、设定讨论、剧情构思。
+  隐含表达："不知道怎么写"、"不够精彩"、"有什么推荐"、"还能怎么玩"、
+  "卡住了"、"没思路"、"主角职业推荐"、"后面怎么发展"
+- "writing": 明确的写作/修改/生成请求
+- "other": 以上都不是
 
 返回 JSON: {"intent": "brainstorm|writing|other"}
 ```
 
-- 只在 `state == IDLE` 时调用
-- 使用小模型 + 低 temperature，降低延迟和成本
-- 显式命令 `/brainstorm` 跳过检测，直接进入 BRAINSTORMING
+**命令优先级**：`/brainstorm` 直接创建 BrainstormSession，跳过检测。`/brainstorm 写第一章` → 进入 brainstorm 模式（显式命令优先于消息内容）。
 
-## Brainstorm Agent Tools
+## Context Management（防爆炸）
 
-- `lookup_settings` — 查询项目设定
-- `get_outline_context` — 查询大纲树
-- `search_any` — 跨实体搜索
-- `save_inspiration` — 保存脑暴产物。**用户确认后才写入**：
-  - Agent 调用时 emit `confirm_request`，附保存内容预览
-  - 用户在 SSE 流中看到确认请求，点击确认后才实际写入 DB
-  - 防止试探性内容、假设、胡思乱想污染 Idea 库
-
-## Brainstorm History & Context
-
-**始终包含项目上下文**：Brainstorm Agent 每次运行时，除了 `brainstorm_history`（当前会话轮次），还注入完整的项目上下文：
+Brainstorm Agent **不预注入**全部项目上下文。它通过工具按需获取：
 
 ```python
-context = {
-    "project_meta": {...},        # 项目元信息
-    "settings_context": "...",    # 完整设定集
-    "outline_context": "...",     # 大纲树
-    "style_context": "...",       # 文风指南
-    "recent_chapters": "...",     # 最近N章摘要
-    "brainstorm_history": [...],  # 当前脑暴会话的对话轮次
+# Brainstorm Agent 可用的上下文获取工具
+- lookup_settings(keywords)     # 按关键词搜索设定
+- get_outline_context(node_id)  # 查询特定大纲节点
+- search_any(q, type, limit)    # 跨实体搜索
+```
+
+启动时只注入最小上下文：
+
+```python
+initial_context = {
+    "project_meta": {"genre": "...", "status": "..."},
+    "brainstorm_history": [...],  # 当前会话轮次
 }
 ```
 
-**不压缩历史**：脑暴结束时，完整对话历史（含已否决方案、分支思路）保存为 `Idea(source="brainstorm")`。不压缩，不做摘要丢失细节。用户后续可通过 Idea 引用恢复完整上下文。
+**brainstorm_history 的滑动窗口**：
 
-**timeout 后恢复**：超时存档包含完整 `brainstorm_history`。用户下次进入脑暴时，检测到未完成的存档 → 询问是否继续。
+- 保留最近 20 轮完整内容
+- 超过 20 轮的部分 → 每 10 轮压缩为一条摘要（保留关键决策、分支方案、被否决方向）
+- 摘要由 LLM 生成，确保不丢失被否决的方案和分支思路
+- `token_count` 追踪总 token，超过 `max_brainstorm_tokens`（默认 50K）时触发压缩
 
-## Explicit Commands
+## Handoff（防重复、防循环）
 
-| 命令 | 作用 | 可用状态 |
-|------|------|----------|
-| `/brainstorm` | 强制进入脑暴模式 | IDLE |
-| `/done` | 正常结束脑暴，保存历史 | BRAINSTORMING, WAITING_USER |
-| `/cancel` | 取消脑暴，丢弃历史 | BRAINSTORMING, WAITING_USER |
+当用户在 Brainstorm 中发写作请求：
 
-**禁止自然语言结束检测**。不再尝试从用户消息中匹配 "好了"、"就这样" 等关键词。结束只能通过命令或前端按钮触发。
+1. Brainstorm Agent 收到消息
+2. Agent 简洁总结脑暴成果
+3. Emit `action: handoff, summary: "..."` 
+4. 保存完整 history，`active_session = None`
+5. 将 **Agent 的总结**（而非用户原始消息）作为输入传递给写作流程 → 避免消息重复消费
+6. 写作流程从总结开始，而非重新处理用户消息
 
-## SSE Multi-Turn Routing
+**防 ping-pong**：
 
 ```python
-# In agent.py SSE endpoint, when receiving a new message:
-if state == IDLE:
-    intent = await detect_intent(message)
-    if intent == "brainstorm":
-        state = BRAINSTORMING
-        active_agent = "brainstorm"
-    elif intent == "writing":
-        # normal orchestrator flow
-    else:
-        # general response
-
-elif state == WAITING_USER and active_agent == "brainstorm":
-    if message is "/done":
-        save_full_brainstorm_history()
-        state = IDLE
-        active_agent = None
-    elif message is "/cancel":
-        discard_brainstorm_history()
-        state = IDLE
-        active_agent = None
-    else:
-        state = BRAINSTORMING
-        await _run_brainstormer(message)
-
-elif state == BRAINSTORMING and active_agent == "brainstorm":
-    result = await _run_brainstormer(message)
-    if result.action == "handoff":
-        save_full_brainstorm_history()
-        state = IDLE
-        active_agent = None
-        # Re-route user's original message through intent detection
-        # (this time it will match "writing" and go through normal flow)
+handoff_depth: int = 0  # 每次 handoff +1
+max_handoff_depth: int = 3  # 超过此值 → 停止流转，请用户明确指令
 ```
 
-## Concurrency
+Writer handoff → Brainstorm 同样受此限制。
 
-- Per-project `asyncio.Lock` 仅保护 orchestrator **状态转换**，不锁整个 agent 调用
-- 同一项目同一时刻只允许一个活跃的 agent 任务
-- 并发请求返回 `{"status": "busy", "current_state": "...", "active_agent": "..."}`
+## Idea 与聊天记录分离
 
-## Old `/brainstorm` Page Migration
+- **对话历史** → 存储为 `AgentTask(type="brainstorm")` + `AgentMessage`（与现有 agent 消息机制一致）
+- **灵感产物** → 用户确认的 `save_inspiration` 结果保存为 `Idea(source="brainstorm")`
+- 不会出现"嗯、继续、好的"出现在 Idea 搜索中的情况
 
-分步执行：
-1. `/brainstorm` → 302 重定向到 `/project/{default_id}/agent`（或让用户选择项目）
-2. 旧模板保留，但不再有入口链接
-3. 观察一个版本周期
-4. 下一版本删除 `app/routers/brainstorming.py` 和 `app/templates/brainstorm/`
+## save_inspiration：批量确认
+
+- 脑暴过程中，Agent 可以提议保存灵感（emit `save_inspiration` proposal）
+- 所有 proposal 累积在 `pending_saves` 列表中
+- **不打断用户**：提案只在 Agent 回复末尾展示 "可保存的灵感 (N)"
+- 脑暴正常结束时（`/done`）：批量展示所有 pending_saves，用户一次性确认
+- `/cancel`：丢弃 pending_saves，但已确认保存的 Idea 保留
+- `/timeout`：pending_saves 保留在 draft 中，恢复时可继续确认
+
+## /cancel 语义
+
+- 丢弃 `brainstorm_history`（对话）
+- 保留已确认的 `Idea`（曾显式批准的写入）
+- 丢弃 `pending_saves`（未确认的）
+- session status → "cancelled"
+
+## Lock：覆盖完整 read-check-write
+
+```python
+# Per-project lock covers the entire message handling cycle
+async with project_lock:
+    # read state
+    # check intent / route
+    # update state
+    # run agent
+    # persist
+```
+
+锁覆盖整个处理周期，消除 check-then-act 竞态。并发请求收到 `{"status": "busy"}`。
+
+## Timeout & 恢复
+
+- 15 分钟无 `last_activity` → timeout
+- 保存 BrainstormSession（status="timeout"，完整 history）
+- 用户下次进入时：
+  - 查询 `status == "timeout"` 的 session，按 `last_activity` 降序
+  - 只有 1 个且 < 24 小时 → 自动恢复
+  - 多个或 > 24 小时 → 展示列表让用户选择
+  - 恢复后 `status → "active"`，`last_activity` 更新
+
+## Observability（实现阶段记录）
+
+追踪指标（为迁移效果评估服务）：
+- 意图命中率（brainstorm/writing/other 分布）
+- 平均脑暴轮数、中位数、P95
+- handoff 次数及成功率
+- timeout 率、取消率、恢复率
+- per-session token 消耗
 
 ## Files
 
 ### New
-- `app/agents/agents/brainstorm.py` — `build_brainstorm_config()` factory
-- `app/agents/tools/brainstorm.py` — `save_inspiration` tool (confirm-before-write)
+- `app/agents/agents/brainstorm.py` — `build_brainstorm_config()`
+- `app/agents/tools/brainstorm.py` — `save_inspiration` (accumulate proposals, batch confirm)
 - `app/agents/prompts/brainstorm_system.txt` — system prompt
 
 ### Modified
-- `app/agents/orchestrator.py` — add BRAINSTORMING state, `active_agent` field, `_run_brainstormer()`, intent detection, timeout
-- `app/agents/blackboard.py` — add `active_agent`, `brainstorm_history` fields
-- `app/routers/agent.py` — SSE multi-turn routing, explicit command handling, lock
-- `app/routers/__init__.py` — register brainstorm redirect route
+- `app/agents/blackboard.py` — add `BrainstormSession`, `active_session` field
+- `app/routers/agent.py` — routing logic, command handling, per-project lock, session recovery
+- `app/routers/__init__.py` — 302 redirect for `/brainstorm`
 
 ### Deprecated (remove in next version)
 - `app/routers/brainstorming.py` → 302 redirect
-- `app/templates/brainstorm/` — keep for one version
+- `app/templates/brainstorm/`
 
-## Observability (future iteration)
-
-- Trace span per Brainstorm Agent session: enter/exit time, tool calls, tokens
-- End reason tracking: user_done / handoff / timeout / cancel
-- Structured logging with `agent: "brainstorm"` tag
+### Reused
+- `AgentTask` + `AgentMessage` for BrainstormSession persistence (task_type="brainstorm")
+- Existing tools: `lookup_settings`, `get_outline_context`, `search_any`
