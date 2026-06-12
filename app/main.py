@@ -41,9 +41,10 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 def on_startup():
     os.makedirs(BASE_DIR.parent / "data", exist_ok=True)
     init_db()
-    from app.migrations import m001_token_usage_to_ai_call
+    from app.migrations import m001_token_usage_to_ai_call, m002_add_agent_task_columns
     from app.database import engine
     m001_token_usage_to_ai_call.run(engine)
+    m002_add_agent_task_columns.run(engine)
     _recover_agent_tasks()
 
 
