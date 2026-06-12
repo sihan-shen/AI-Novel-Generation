@@ -14,6 +14,199 @@ from app.database import get_db
 from app.llm.adapter import get_adapter
 from app.models.agent_task import AgentTask
 from app.models.agent_message import AgentMessage
+from datetime import datetime, timedelta
+
+_project_locks: dict[str, asyncio.Lock] = {}
+
+def _get_project_lock(project_id: str) -> asyncio.Lock:
+    if project_id not in _project_locks:
+        _project_locks[project_id] = asyncio.Lock()
+    return _project_locks[project_id]
+
+
+def _get_active_task(db: Session, project_id: str):
+    """Get the currently active (running or waiting_user) task for a project."""
+    return db.query(AgentTask).filter(
+        AgentTask.project_id == project_id,
+        AgentTask.status.in_(["running", "waiting_user"]),
+    ).order_by(AgentTask.updated_at.desc()).first()
+
+
+async def _detect_intent(adapter, message: str) -> str:
+    """Classify user intent as 'brainstorm', 'writing', or 'other'."""
+    prompt = f"""用户消息: "{message}"
+
+判断意图：
+- "brainstorm": 创意帮助、灵感拓展、方案探索、设定讨论。
+  隐含表达："还能怎么玩"、"卡住了"、"没思路"、"有什么推荐"、"给我几个方案"、"不知道怎么"、"不够精彩"
+- "writing": 明确的写作/修改/生成请求。边界：即使用户表达困惑（"不知道怎么写第一章"），只要提到具体章节/写作动作，归类为 writing
+- "other": 以上都不是
+
+返回 JSON: {{"intent": "brainstorm|writing|other"}}"""
+
+    try:
+        response = await adapter.generate(
+            [{"role": "user", "content": prompt}],
+            temperature=0.1,
+            max_tokens=50,
+        )
+        import json
+        result = json.loads(response.content)
+        return result.get("intent", "other")
+    except Exception:
+        return "other"
+
+
+def _check_timeout(db: Session, task: AgentTask) -> bool:
+    """Check if the active task has timed out (15 min since last message)."""
+    from app.models.agent_message import AgentMessage
+    last_msg = db.query(AgentMessage).filter(
+        AgentMessage.task_id == task.id,
+    ).order_by(AgentMessage.created_at.desc()).first()
+
+    if last_msg and last_msg.created_at:
+        elapsed = datetime.utcnow() - last_msg.created_at
+        if elapsed > timedelta(minutes=15):
+            task.status = "timeout"
+            task.completed_at = datetime.utcnow()
+            db.commit()
+            return True
+    return False
+
+
+async def _handle_brainstorm_turn(
+    db: Session,
+    task: AgentTask,
+    message: str,
+    project_id: str,
+    adapter,
+) -> list[dict]:
+    """Execute one turn of brainstorm: load history, run agent, persist response."""
+    from app.agents.base import run_agent
+    from app.agents.agents.brainstorm import build_brainstorm_config
+    from app.agents.blackboard import Blackboard
+    from app.agents.autonomy import AutonomyConfig
+
+    # Check for commands
+    if message.strip() in ("/done", "/end"):
+        task.status = "completed"
+        task.completed_at = datetime.utcnow()
+        db.commit()
+        return [{"type": "brainstorm_end", "message": "脑暴已结束", "pending_inspirations": task.task_metadata.get("pending_inspirations", [])}]
+
+    if message.strip() in ("/cancel",):
+        task.status = "cancelled"
+        task.completed_at = datetime.utcnow()
+        db.commit()
+        return [{"type": "brainstorm_end", "message": "脑暴已取消"}]
+
+    # Load recent message history (last 20 turns)
+    from app.models.agent_message import AgentMessage
+    recent_msgs = db.query(AgentMessage).filter(
+        AgentMessage.task_id == task.id,
+    ).order_by(AgentMessage.sequence).all()
+
+    history = []
+    for m in recent_msgs[-20:]:  # Last 20 messages
+        history.append({"role": m.role, "content": m.content})
+
+    # Build context with minimal project info + history
+    from app.services.project_service import ProjectService
+    project = ProjectService.get(db, project_id)
+    context_lines = [f"项目: {project.title if project else project_id}"]
+    if project and project.genre:
+        context_lines.append(f"类型: {project.genre}")
+
+    # Build agent config and run
+    config = build_brainstorm_config(db=db, project_id=project_id, task_id=task.id)
+    blackboard = Blackboard(
+        project_id=project_id,
+        task={"type": "brainstorm", "task_id": task.id},
+        autonomy_config=AutonomyConfig(),
+    )
+
+    blackboard._settings_context = "\n".join(context_lines)  # Minimal context
+
+    # Override get_context_for to include history
+    original_get_context = blackboard.get_context_for
+    def _brainstorm_context(agent_type: str) -> str:
+        base = original_get_context(agent_type)
+        if history:
+            hist_text = "\n\n=== 当前脑暴对话 ===\n"
+            for h in history[-20:]:
+                role_label = "用户" if h["role"] == "user" else "顾问"
+                hist_text += f"\n{role_label}: {h['content'][:500]}"
+            base += hist_text
+        return base
+    blackboard.get_context_for = _brainstorm_context
+
+    result = await run_agent(config, blackboard, adapter)
+
+    # Handle handoff
+    if result.status == "handoff":
+        task.status = "completed"
+        task.completed_at = datetime.utcnow()
+        db.commit()
+        return [{
+            "type": "brainstorm_handoff",
+            "summary": result.output,
+            "user_message": message,
+            "pending_inspirations": task.task_metadata.get("pending_inspirations", []),
+        }]
+
+    # Persist assistant response as AgentMessage
+    import uuid
+    seq = len(recent_msgs) + 1
+    user_msg_obj = AgentMessage(
+        id=str(uuid.uuid4()),
+        task_id=task.id,
+        role="user",
+        content=message[:2000],
+        message_type="user_message",
+        sequence=seq,
+    )
+    db.add(user_msg_obj)
+
+    seq += 1
+    assistant_msg = AgentMessage(
+        id=str(uuid.uuid4()),
+        task_id=task.id,
+        role="assistant",
+        content=result.output[:2000],
+        message_type="agent_output",
+        sequence=seq,
+    )
+    db.add(assistant_msg)
+    task.total_steps = seq
+    if result.steps:
+        task.total_tokens = (task.total_tokens or 0) + result.steps[0].token_usage.get("input_tokens", 0) + result.steps[0].token_usage.get("output_tokens", 0)
+    task.updated_at = datetime.utcnow()
+    db.commit()
+
+    # Build SSE events
+    events = [{"type": "brainstorm_response", "content": result.output, "sequence": seq}]
+
+    # Include tool calls if any
+    for step in result.steps:
+        events.append({
+            "type": "tool_call",
+            "tool": step.tool_name,
+            "args": step.tool_args,
+            "sequence": seq,
+        })
+
+    # Check turn limit
+    turn_count = task.task_metadata.get("turn_count", 0) + 1
+    task.update_task_metadata(turn_count=turn_count)
+    db.commit()
+    if turn_count >= 100:
+        task.status = "completed"
+        task.completed_at = datetime.utcnow()
+        db.commit()
+        events.append({"type": "brainstorm_end", "message": "已达到最大轮数(100)，脑暴自动结束", "pending_inspirations": task.task_metadata.get("pending_inspirations", [])})
+
+    return events
+
 
 router = APIRouter(prefix="/project/{project_id}/agent", tags=["agent"])
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
