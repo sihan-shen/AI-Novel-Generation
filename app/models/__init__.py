@@ -10,3 +10,4 @@ from app.models.ai_call import AICall
 from app.models.config import Config
 from app.models.agent_task import AgentTask
 from app.models.agent_message import AgentMessage
+from app.models.chapter_snapshot import ChapterSnapshot

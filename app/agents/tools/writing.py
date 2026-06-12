@@ -86,11 +86,22 @@ def write_chapter(
         return json.dumps({"status": "suggested", "title": title, "word_count": len(content)}, ensure_ascii=False)
 
     from app.models.chapter import Chapter
+    from app.models.chapter_snapshot import ChapterSnapshot
     existing = db.query(Chapter).filter(
         Chapter.project_id == project_id, Chapter.outline_id == outline_id,
     ).first()
 
     if existing and write_mode == "draft":
+        # Snapshot current content before overwriting (for rollback)
+        snapshot = db.query(ChapterSnapshot).filter(
+            ChapterSnapshot.chapter_id == existing.id,
+            ChapterSnapshot.task_id == task_id,
+        ).first()
+        if not snapshot:
+            db.add(ChapterSnapshot(
+                chapter_id=existing.id, task_id=task_id,
+                content=existing.content, title=existing.title,
+            ))
         existing.title = title
         existing.content = content
         existing.word_count = len(content)

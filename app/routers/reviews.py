@@ -28,6 +28,12 @@ async def new_review_form(project_id: str, request: Request, db: Session = Depen
     return templates.TemplateResponse(request, "review/_form.html", {"project_id": project_id, "chapters": chapters})
 
 
+@router.get("/list")
+async def review_list(project_id: str, request: Request, db: Session = Depends(get_db)):
+    reviews = ReviewService.list_reviews(db, project_id)
+    return templates.TemplateResponse(request, "review/_list.html", {"reviews": reviews, "project_id": project_id})
+
+
 @router.post("/run")
 async def run_review(project_id: str, request: Request, db: Session = Depends(get_db)):
     form = await request.form()
@@ -65,9 +71,3 @@ async def review_detail(review_id: str, request: Request, db: Session = Depends(
     return templates.TemplateResponse(request, "review/_detail.html", {
         "review": review, "findings": findings, "summary": summary,
     })
-
-
-@router.get("/list")
-async def review_list(project_id: str, request: Request, db: Session = Depends(get_db)):
-    reviews = ReviewService.list_reviews(db, project_id)
-    return templates.TemplateResponse(request, "review/_list.html", {"reviews": reviews, "project_id": project_id})

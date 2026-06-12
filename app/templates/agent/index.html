@@ -5,44 +5,53 @@
   {% include "_breadcrumb.html" %}
 {% endblock %}
 {% block content %}
-<div class="agent-layout" style="display:flex;height:calc(100vh - var(--nav-height) - 6rem);gap:1.5rem;">
-  <div class="agent-chat" style="flex:1;display:flex;flex-direction:column;min-width:0;">
-    <div id="agent-chat-messages" style="flex:1;overflow-y:auto;padding:0 0.5rem;display:flex;flex-direction:column;gap:0.75rem;">
+<link rel="stylesheet" href="/static/css/agent.css">
+<div class="agent-layout">
+  <div class="agent-chat">
+    <div id="agent-chat-messages" class="agent-chat-messages">
       <div class="agent-welcome empty-state">
         <span class="empty-state-icon">✦</span>
         <p class="empty-state-title">Agent 写作助手</p>
         <p class="empty-state-desc">告诉我你想写哪一章、多少字，我会自动查询设定、创作正文。</p>
       </div>
     </div>
-    <form id="agent-chat-form" style="display:flex;gap:0.5rem;padding:0.75rem 0 0 0;border-top:1px solid var(--border-light);margin-top:0.5rem;" onsubmit="return AgentChat.send(event)">
-      <input type="text" id="agent-input" class="input" placeholder="例如：写第3章，约3000字..." style="flex:1;" autocomplete="off">
+    <form id="agent-chat-form" class="agent-chat-form" onsubmit="return AgentChat.send(event)">
+      <input type="text" id="agent-input" class="input agent-chat-input" placeholder="例如：写第3章，约3000字..." autocomplete="off">
       <input type="hidden" id="agent-outline-id" value="">
       <input type="hidden" id="agent-target-words" value="3000">
       <button type="submit" class="btn btn-primary" id="agent-send-btn">发送</button>
     </form>
   </div>
-  <div class="agent-sidebar" style="width:280px;flex-shrink:0;">
-    <div class="card" style="padding:1rem;">
+  <div class="agent-sidebar">
+    <div class="card agent-sidebar-card">
       <h3 class="heading-sm" style="margin:0 0 0.75rem 0;">任务状态</h3>
-      <div id="agent-status" style="font-size:0.8125rem;color:var(--text-secondary);">就绪</div>
-      <div id="agent-progress" style="display:none;margin-top:0.5rem;">
-        <div style="height:4px;background:var(--bg-hover);border-radius:2px;overflow:hidden;"><div id="agent-progress-bar" style="height:100%;background:var(--accent);width:0%;transition:width 0.3s;"></div></div>
-        <div id="agent-progress-text" style="font-size:0.6875rem;color:var(--text-tertiary);margin-top:0.25rem;"></div>
+      <div id="agent-status" class="agent-status">就绪</div>
+      <div id="agent-progress" class="agent-progress">
+        <div class="agent-progress-bar"><div id="agent-progress-bar" class="agent-progress-fill"></div></div>
+        <div id="agent-progress-text" class="agent-progress-text"></div>
+      </div>
+      <div style="margin-top:0.5rem;display:flex;gap:0.25rem;">
+        <button class="btn btn-ghost btn-sm" style="font-size:0.6875rem;" onclick="AgentChat.toggleAllGroups(true)">全部展开</button>
+        <button class="btn btn-ghost btn-sm" style="font-size:0.6875rem;" onclick="AgentChat.toggleAllGroups(false)">全部折叠</button>
       </div>
     </div>
-    <div class="card" style="padding:1rem;margin-top:0.75rem;">
+    <div class="card agent-sidebar-card">
+      <h3 class="heading-sm" style="margin:0 0 0.75rem 0;">历史会话</h3>
+      <button class="btn btn-primary btn-sm session-new-btn" onclick="AgentChat.startNewSession()">+ 新会话</button>
+      <div id="agent-session-list" class="session-list">
+        <div style="font-size:0.8125rem;color:var(--text-tertiary);padding:0.5rem;text-align:center;">加载中...</div>
+      </div>
+    </div>
+    <div class="card agent-sidebar-card">
       <h3 class="heading-sm" style="margin:0 0 0.75rem 0;">快捷入口</h3>
       <a href="/project/{{ project.id }}/outline" class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:0.25rem;">大纲编辑器</a>
       <a href="/project/{{ project.id }}/writer" class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:0.25rem;">写作编辑器</a>
       <a href="/project/{{ project.id }}/settings" class="btn btn-ghost btn-sm" style="width:100%;">设定集</a>
-    </div>
-    <div class="card" style="padding:1rem;margin-top:0.75rem;">
-      <h3 class="heading-sm" style="margin:0 0 0.75rem 0;">最近产出</h3>
-      <div id="agent-recent-outputs" style="font-size:0.8125rem;color:var(--text-tertiary);">暂无</div>
     </div>
   </div>
 </div>
 {% endblock %}
 {% block scripts_extra %}
 <script src="/static/js/agent-chat.js"></script>
+<script>AgentChat.init();</script>
 {% endblock %}

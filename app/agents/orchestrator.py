@@ -30,7 +30,7 @@ class Orchestrator:
         self._task_id = task_id
 
     async def run(self) -> OrchestratorState:
-        logger.info(f"Orchestrator started for project {self._project_id}", extra={"state": "start", "project_id": self._project_id})
+        logger.info(f"Orchestrator started for project {self._project_id}", extra={"state": "start", "project_id": self._project_id, "task_id": self._task_id})
         self.state = OrchestratorState.GATHERING_CONTEXT
         while self.state not in (OrchestratorState.IDLE, OrchestratorState.DONE, OrchestratorState.CANCELLED):
             self.blackboard.orchestrator_state = self.state.value
@@ -126,6 +126,6 @@ class Orchestrator:
         return await self._run_writer()
 
     def _done(self) -> OrchestratorState:
-        logger.info("orchestrator.state", extra={"state": self.state.value, "project_id": self._project_id})
+        logger.info("orchestrator.state", extra={"state": self.state.value, "project_id": self._project_id, "task_id": self._task_id})
         self.blackboard.emit_event({"type": "task_complete", "task_id": self._task_id or "", "summary": "写作任务完成", "sequence": 999})
         return OrchestratorState.IDLE
