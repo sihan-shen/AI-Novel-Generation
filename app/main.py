@@ -27,6 +27,8 @@ app.add_middleware(
 BASE_DIR = Path(__file__).parent
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 app.include_router(projects.router)
+from app.routers.projects import api_router as projects_api
+app.include_router(projects_api)
 app.include_router(outlines.router)
 app.include_router(settings.router)
 app.include_router(chapters.router)

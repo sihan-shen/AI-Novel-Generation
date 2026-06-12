@@ -45,3 +45,38 @@ async def delete_project(request: Request, project_id: str, db: Session = Depend
     ProjectService.delete(db, project_id)
     projects = ProjectService.list(db)
     return templates.TemplateResponse(request, "project/_list.html", {"projects": projects})
+
+
+# ---- JSON API endpoints ----
+
+from app.schemas.response import APIResponse
+from app.schemas.project import ProjectResponse, ProjectCreate as ProjectCreateSchema
+from fastapi import HTTPException
+
+api_router = APIRouter(prefix="/api/projects", tags=["projects"])
+
+
+@api_router.get("", response_model=APIResponse[list[ProjectResponse]])
+async def api_list_projects(db: Session = Depends(get_db)):
+    projects = ProjectService.list(db)
+    return APIResponse(data=projects)
+
+
+@api_router.post("", response_model=APIResponse[ProjectResponse], status_code=201)
+async def api_create_project(body: ProjectCreateSchema, db: Session = Depends(get_db)):
+    project = ProjectService.create(db, body)
+    return APIResponse(data=project)
+
+
+@api_router.get("/{project_id}", response_model=APIResponse[ProjectResponse])
+async def api_get_project(project_id: str, db: Session = Depends(get_db)):
+    project = ProjectService.get(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return APIResponse(data=project)
+
+
+@api_router.delete("/{project_id}", response_model=APIResponse[dict])
+async def api_delete_project(project_id: str, db: Session = Depends(get_db)):
+    ProjectService.delete(db, project_id)
+    return APIResponse(data={"deleted": project_id})
