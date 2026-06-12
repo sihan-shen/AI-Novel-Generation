@@ -240,10 +240,6 @@ async def chat_stream(
     resume_from: int = Query(0, description="Sequence number to resume from"),
     db: Session = Depends(get_db),
 ):
-    from app.agents.blackboard import Blackboard
-    from app.agents.autonomy import AutonomyConfig
-    from app.agents.orchestrator import Orchestrator
-
     async def event_stream():
         # If resuming, replay past messages from agent_messages
         if resume_from > 0:
@@ -264,23 +260,139 @@ async def chat_stream(
                 yield "event: reconnect\ndata: {\"status\": \"no_active_task\"}\n\n"
             return
 
-        # Normal execution path
         adapter = get_adapter(db)
+        lock = _get_project_lock(project_id)
+
+        # ---- Check for existing active task ----
+        async with lock:
+            active_task = _get_active_task(db, project_id)
+
+            if active_task and active_task.task_type == "brainstorm":
+                # Check timeout
+                if _check_timeout(db, active_task):
+                    yield f"event: brainstorm_end\ndata: {json.dumps({'message': '脑暴已超时', 'timeout': True}, ensure_ascii=False)}\n\n"
+                    return
+
+                # Handle brainstorm turn
+                events = await _handle_brainstorm_turn(
+                    db, active_task, body.message, project_id, adapter
+                )
+
+                # Handle handoff from brainstorm
+                handoff_event = next((e for e in events if e["type"] == "brainstorm_handoff"), None)
+                if handoff_event:
+                    yield f"event: brainstorm_end\ndata: {json.dumps({'message': '切换到写作模式', 'handoff': True}, ensure_ascii=False)}\n\n"
+                    yield f"event: orchestrator_thought\ndata: {json.dumps({'text': '脑暴已完成，请重新发送写作请求'}, ensure_ascii=False)}\n\n"
+                    return
+
+                # Emit brainstorm events
+                seq = 0
+                for event in events:
+                    seq += 1
+                    yield f"event: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
+                return
+
+            # ---- No active task: detect intent ----
+            if active_task is None:
+                # Check for explicit /brainstorm command
+                if body.message.strip().startswith("/brainstorm"):
+                    intent = "brainstorm"
+                else:
+                    intent = await _detect_intent(adapter, body.message)
+
+                if intent == "brainstorm":
+                    from app.agents.autonomy import AutonomyConfig
+                    task_obj = AgentTask(
+                        id=str(uuid.uuid4()),
+                        project_id=project_id,
+                        task_type="brainstorm",
+                        target_desc=body.message[:500],
+                        autonomy_config=json.dumps(AutonomyConfig().to_dict()),
+                        orchestrator_state="BRAINSTORMING",
+                        status="running",
+                    )
+                    db.add(task_obj)
+                    db.commit()
+
+                    yield f"event: agent_start\ndata: {json.dumps({'agent': 'brainstorm', 'task_id': task_obj.id}, ensure_ascii=False)}\n\n"
+
+                    events = await _handle_brainstorm_turn(
+                        db, task_obj, body.message, project_id, adapter
+                    )
+                    seq = 0
+                    for event in events:
+                        seq += 1
+                        yield f"event: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
+                    return
+
+        # ---- Normal orchestrator flow (original code, outside the async with lock) ----
+        from app.agents.blackboard import Blackboard
+        from app.agents.autonomy import AutonomyConfig
+        from app.agents.orchestrator import Orchestrator
+
         autonomy = AutonomyConfig()
-        task = {"type": "write_chapter", "chapter_outline_id": body.chapter_outline_id, "target_words": body.target_words}
-        blackboard = Blackboard(project_id=project_id, task=task, autonomy_config=autonomy)
-        orch = Orchestrator(db=db, blackboard=blackboard, adapter=adapter)
+        task_def = {"type": "write_chapter", "chapter_outline_id": body.chapter_outline_id, "target_words": body.target_words}
+        task_obj = AgentTask(
+            id=str(uuid.uuid4()),
+            project_id=project_id,
+            task_type="write_chapter",
+            target_desc=body.message[:500],
+            autonomy_config=json.dumps(autonomy.to_dict()),
+            orchestrator_state="RUNNING",
+            status="running",
+        )
+        db.add(task_obj)
+        db.commit()
+        task_id = task_obj.id
+
+        blackboard = Blackboard(project_id=project_id, task=task_def, autonomy_config=autonomy)
+        orch = Orchestrator(db=db, blackboard=blackboard, adapter=adapter, task_id=task_id)
         orch_task = asyncio.create_task(orch.run())
         seq = 0
-        while not orch_task.done() or not blackboard.events.empty():
+
+        try:
+            while not orch_task.done() or not blackboard.events.empty():
+                try:
+                    event = await asyncio.wait_for(blackboard.events.get(), timeout=0.5)
+                    seq += 1
+                    event["sequence"] = seq
+                    yield f"event: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+                    content = event.get("text", event.get("summary", event.get("tool", "")))
+                    msg = AgentMessage(
+                        id=str(uuid.uuid4()),
+                        task_id=task_id,
+                        role="user" if event["type"] in ("user_message", "confirm_response") else "assistant",
+                        content=str(content)[:2000],
+                        message_type=event["type"],
+                        msg_metadata=json.dumps(event, ensure_ascii=False),
+                        sequence=seq,
+                    )
+                    db.add(msg)
+                    db.commit()
+
+                    if seq % 10 == 1:
+                        task_obj.total_steps = seq
+                        db.commit()
+                except asyncio.TimeoutError:
+                    if orch_task.done():
+                        break
+        finally:
+            final_state = blackboard.orchestrator_state
+            task_obj.orchestrator_state = final_state
+            task_obj.total_steps = seq
+            task_obj.total_tokens = blackboard.cumulative_tokens
+            if final_state in ("DONE", "CANCELLED", "IDLE"):
+                task_obj.status = "completed" if final_state == "DONE" else "cancelled"
+                task_obj.completed_at = datetime.utcnow()
+            elif final_state == "WAITING_USER":
+                task_obj.status = "waiting_user"
             try:
-                event = await asyncio.wait_for(blackboard.events.get(), timeout=0.5)
-                seq += 1
-                event["sequence"] = seq
-                yield f"event: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
-            except asyncio.TimeoutError:
-                if orch_task.done():
-                    break
+                task_obj.blackboard_snapshot = json.dumps(blackboard.to_snapshot(), ensure_ascii=False)
+            except Exception:
+                pass
+            db.commit()
+
         yield "event: done\ndata: {}\n\n"
 
     return StreamingResponse(
@@ -338,3 +450,71 @@ async def list_tasks(project_id: str, db: Session = Depends(get_db)):
     from app.models.agent_task import AgentTask
     tasks = db.query(AgentTask).filter(AgentTask.project_id == project_id).order_by(AgentTask.created_at.desc()).limit(20).all()
     return {"tasks": [{"id": t.id, "task_type": t.task_type, "status": t.status, "total_steps": t.total_steps, "total_tokens": t.total_tokens, "created_at": t.created_at.isoformat() if t.created_at else None, "completed_at": t.completed_at.isoformat() if t.completed_at else None} for t in tasks]}
+
+
+class ConfirmInspirationsRequest(BaseModel):
+    inspiration_ids: list[str]
+
+
+@router.post("/inspirations/confirm")
+async def confirm_inspirations(
+    project_id: str,
+    body: ConfirmInspirationsRequest,
+    db: Session = Depends(get_db),
+):
+    """Confirm and save selected inspirations from a completed brainstorm session."""
+    from app.services.idea_service import IdeaService
+    from app.services.setting_service import SettingService
+    from app.services.outline_service import OutlineService
+    from app.schemas.setting import SettingCreate
+    from app.schemas.outline import OutlineCreate
+
+    # Find the most recent completed brainstorm task
+    task = db.query(AgentTask).filter(
+        AgentTask.project_id == project_id,
+        AgentTask.task_type == "brainstorm",
+        AgentTask.status == "completed",
+    ).order_by(AgentTask.updated_at.desc()).first()
+
+    if not task:
+        return {"status": "error", "message": "No completed brainstorm session found"}
+
+    pending = task.task_metadata.get("pending_inspirations", [])
+    saved_count = 0
+
+    for insp in pending:
+        if insp["id"] not in body.inspiration_ids:
+            continue
+        if insp["type"] == "idea":
+            IdeaService.create(
+                db, project_id=project_id,
+                title=insp.get("title", "灵感"),
+                content=insp.get("content", ""),
+                source="brainstorm",
+            )
+            saved_count += 1
+        elif insp["type"] == "setting":
+            SettingService.create(db, SettingCreate(
+                project_id=project_id,
+                category=insp.get("category", "自定义"),
+                name=insp.get("title", "未命名"),
+                summary=insp.get("content", "")[:500],
+                content=insp.get("content", ""),
+                weight=5,
+            ))
+            saved_count += 1
+        elif insp["type"] == "outline":
+            OutlineService.create(db, OutlineCreate(
+                project_id=project_id,
+                level=2,
+                title=insp.get("title", "未命名"),
+                summary=insp.get("content", "")[:500],
+            ))
+            saved_count += 1
+
+    # Remove confirmed items from pending
+    remaining = [i for i in pending if i["id"] not in body.inspiration_ids]
+    task.update_task_metadata(pending_inspirations=remaining)
+    db.commit()
+
+    return {"status": "ok", "saved_count": saved_count}
