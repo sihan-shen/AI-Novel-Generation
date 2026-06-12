@@ -87,6 +87,28 @@ var AgentChat = {
                 el.style.cssText = 'font-size:0.8125rem;color:var(--text-secondary);padding:0.5rem;border-left:2px solid var(--accent);';
                 el.textContent = 'Agent 启动: ' + data.agent;
                 messages.appendChild(el);
+                if (data.agent === 'brainstorm') {
+                    AgentChat._showBrainstormControls(true);
+                    document.getElementById('agent-status').textContent = '脑暴中...';
+                }
+                break;
+            case 'brainstorm_response':
+                if (data.content) {
+                    el = document.createElement('div');
+                    el.className = 'agent-message brainstorm-response';
+                    el.innerHTML = AgentChat._renderBrainstormContent(data.content);
+                    messages.appendChild(el);
+                }
+                break;
+            case 'brainstorm_end':
+                AgentChat._showBrainstormControls(false);
+                document.getElementById('agent-status').textContent = '就绪';
+                if (data.pending_inspirations && data.pending_inspirations.length > 0) {
+                    AgentChat._showInspirationPanel(data.pending_inspirations);
+                }
+                if (data.message && typeof showToast === 'function') {
+                    showToast(data.message, data.timeout ? 'warning' : 'info');
+                }
                 break;
             case 'tool_call':
                 el = document.createElement('div');
@@ -119,5 +141,146 @@ var AgentChat = {
                 break;
         }
         messages.scrollTop = messages.scrollHeight;
+    },
+
+    _showBrainstormControls: function(show) {
+        var container = document.getElementById('brainstorm-controls');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'brainstorm-controls';
+            container.className = 'brainstorm-controls';
+            container.style.cssText = 'display:flex;gap:0.5rem;align-items:center;padding:0.5rem 1rem;background:var(--bg-secondary);border-bottom:1px solid var(--border);';
+
+            var indicator = document.createElement('span');
+            indicator.className = 'brainstorm-indicator';
+            indicator.style.cssText = 'font-size:0.8125rem;color:var(--text-secondary);flex:1;';
+
+            var doneBtn = document.createElement('button');
+            doneBtn.className = 'btn btn-sm btn-primary';
+            doneBtn.textContent = '结束脑暴';
+            var self = this;
+            doneBtn.onclick = function() {
+                self._sendCommand('/done');
+            };
+
+            var cancelBtn = document.createElement('button');
+            cancelBtn.className = 'btn btn-sm btn-ghost';
+            cancelBtn.textContent = '取消';
+            cancelBtn.onclick = function() {
+                self._sendCommand('/cancel');
+            };
+
+            container.appendChild(indicator);
+            container.appendChild(doneBtn);
+            container.appendChild(cancelBtn);
+
+            var messages = document.getElementById('agent-chat-messages');
+            messages.parentNode.insertBefore(container, messages);
+        }
+        container.style.display = show ? 'flex' : 'none';
+
+        var indicator = container.querySelector('.brainstorm-indicator');
+        if (indicator) indicator.textContent = '脑暴模式';
+    },
+
+    _sendCommand: function(cmd) {
+        var input = document.getElementById('agent-input');
+        if (input) {
+            input.value = cmd;
+            this.send(new Event('submit'));
+        }
+    },
+
+    _renderBrainstormContent: function(text) {
+        var html = text
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\n\n/g, '</p><p>')
+            .replace(/\n/g, '<br>');
+        return '<p>' + html + '</p>';
+    },
+
+    _showInspirationPanel: function(inspirations) {
+        var messages = document.getElementById('agent-chat-messages');
+        var panel = document.createElement('div');
+        panel.className = 'inspiration-panel card';
+        panel.style.cssText = 'margin:1rem;padding:1rem;';
+
+        var title = document.createElement('h4');
+        title.className = 'heading-sm';
+        title.textContent = '待保存的灵感 (' + inspirations.length + ')';
+        panel.appendChild(title);
+
+        for (var i = 0; i < inspirations.length; i++) {
+            var insp = inspirations[i];
+            var row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:flex-start;gap:0.5rem;padding:0.5rem 0;border-bottom:1px solid var(--border);';
+
+            var cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = true;
+            cb.dataset.inspId = insp.id;
+            cb.style.cssText = 'margin-top:0.25rem;';
+
+            var info = document.createElement('div');
+            info.style.cssText = 'flex:1;';
+            info.innerHTML = '<strong>' + insp.title + '</strong> <span style="color:var(--text-tertiary);font-size:0.75rem;">[' + insp.type + ']</span>' +
+                '<div style="font-size:0.8125rem;color:var(--text-secondary);margin-top:0.25rem;">' + (insp.content || '').substring(0, 200) + '</div>';
+
+            row.appendChild(cb);
+            row.appendChild(info);
+            panel.appendChild(row);
+        }
+
+        var actions = document.createElement('div');
+        actions.style.cssText = 'display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.75rem;';
+
+        var saveBtn = document.createElement('button');
+        saveBtn.className = 'btn btn-sm btn-primary';
+        saveBtn.textContent = '保存选中';
+        var self = this;
+        saveBtn.onclick = function() {
+            var checkboxes = panel.querySelectorAll('input[type=checkbox]');
+            var selected = [];
+            for (var j = 0; j < checkboxes.length; j++) {
+                if (checkboxes[j].checked) selected.push(checkboxes[j].dataset.inspId);
+            }
+            AgentChat._confirmInspirations(selected);
+            panel.remove();
+        };
+
+        var dismissBtn = document.createElement('button');
+        dismissBtn.className = 'btn btn-sm btn-ghost';
+        dismissBtn.textContent = '全部丢弃';
+        dismissBtn.onclick = function() { panel.remove(); };
+
+        actions.appendChild(dismissBtn);
+        actions.appendChild(saveBtn);
+        panel.appendChild(actions);
+
+        messages.appendChild(panel);
+        messages.scrollTop = messages.scrollHeight;
+    },
+
+    _confirmInspirations: function(inspIds) {
+        var projectId = window.location.pathname.split('/')[2];
+        fetch('/project/' + projectId + '/agent/inspirations/confirm', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({inspiration_ids: inspIds}),
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.status === 'ok' && typeof showToast === 'function') {
+                showToast('已保存 ' + data.saved_count + ' 条灵感', 'success');
+            }
+        })
+        .catch(function() {
+            if (typeof showToast === 'function') showToast('保存失败', 'error');
+        });
+    },
+
+    startNewSession: function() {
+        this._showBrainstormControls(false);
     },
 };
