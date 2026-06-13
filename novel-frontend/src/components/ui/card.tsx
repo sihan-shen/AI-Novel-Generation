@@ -5,14 +5,26 @@ import { cn } from "@/lib/utils"
 function Card({
   className,
   size = "default",
+  surface = "solid",
   ...props
-}: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
+}: React.ComponentProps<"div"> & {
+  size?: "default" | "sm";
+  surface?: "solid" | "glass";
+}) {
+  const surfaceClass =
+    surface === "glass"
+      ? "bg-[var(--surface-glass-bg)] backdrop-blur-[6px] border-[var(--surface-glass-border)]"
+      : "bg-[var(--surface-card)] border-[var(--border-subtle)] shadow-[var(--shadow-card)]";
+
   return (
     <div
       data-slot="card"
       data-size={size}
+      data-surface={surface}
       className={cn(
-        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl bg-card py-(--card-spacing) text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        `group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0`,
+        surfaceClass,
+        "transition-[border-color,box-shadow] duration-[var(--transition-normal)] hover:border-[var(--accent-border)] hover:shadow-[0_0_16px_var(--accent-glow)]",
         className
       )}
       {...props}
