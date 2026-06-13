@@ -55,3 +55,38 @@ async def confirm_import(request: Request, db: Session = Depends(get_db)):
 async def delete_style(style_id: str, db: Session = Depends(get_db)):
     StyleService.delete(db, style_id)
     return HTMLResponse("ok")
+
+
+# ---- JSON API endpoints ----
+
+from app.schemas.response import APIResponse
+from pydantic import BaseModel
+from datetime import datetime
+
+
+class StyleResponse(BaseModel):
+    id: str
+    name: str
+    source: str
+    source_text: str
+    analysis: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+api_router = APIRouter(prefix="/api/styles", tags=["styles"])
+
+
+@api_router.get("", response_model=APIResponse[list[StyleResponse]])
+async def api_list_styles(db: Session = Depends(get_db)):
+    styles = StyleService.list_all(db)
+    return APIResponse(data=styles)
+
+
+@api_router.delete("/{style_id}", response_model=APIResponse[dict])
+async def api_delete_style(style_id: str, db: Session = Depends(get_db)):
+    StyleService.delete(db, style_id)
+    return APIResponse(data={"deleted": style_id})

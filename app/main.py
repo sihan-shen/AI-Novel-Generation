@@ -40,6 +40,8 @@ from app.routers.chapters import api_router as chapters_api
 app.include_router(chapters_api)
 # app.include_router(brainstorming.router)  # DEPRECATED
 app.include_router(styles.router)
+from app.routers.styles import api_router as styles_api
+app.include_router(styles_api)
 app.include_router(reviews.router)
 app.include_router(ideas.router)
 app.include_router(config.router)
