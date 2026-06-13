@@ -49,6 +49,8 @@ app.include_router(ideas.router)
 from app.routers.ideas import api_router as ideas_api
 app.include_router(ideas_api)
 app.include_router(config.router)
+from app.routers.config import api_router as config_api
+app.include_router(config_api)
 app.include_router(outline_gen.router)
 app.include_router(search.router)
 app.include_router(agent.router)

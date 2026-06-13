@@ -71,3 +71,26 @@ async def fetch_models_endpoint(request: Request, db: Session = Depends(get_db))
         return HTMLResponse(
             f'<p class="text-sm text-red-500 mt-2">获取失败: {e}</p>'
         )
+
+
+# ---------------------------------------------------------------------------
+# JSON API (Phase 1)
+# ---------------------------------------------------------------------------
+from app.schemas.response import APIResponse
+
+api_router = APIRouter(prefix="/api/config", tags=["config"])
+
+
+@api_router.get("", response_model=APIResponse[dict])
+async def api_get_config(db: Session = Depends(get_db)):
+    cfg = ConfigService.get_all(db)
+    return APIResponse(data=cfg)
+
+
+@api_router.post("", response_model=APIResponse[dict])
+async def api_save_config(body: dict, db: Session = Depends(get_db)):
+    for key in ("llm_provider", "api_key", "base_url", "model", "host", "port"):
+        if key in body:
+            ConfigService.set(db, key, body[key])
+    cfg = ConfigService.get_all(db)
+    return APIResponse(data=cfg)
