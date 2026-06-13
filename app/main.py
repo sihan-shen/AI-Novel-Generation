@@ -36,6 +36,8 @@ app.include_router(settings.router)
 from app.routers.settings import api_router as settings_api
 app.include_router(settings_api)
 app.include_router(chapters.router)
+from app.routers.chapters import api_router as chapters_api
+app.include_router(chapters_api)
 # app.include_router(brainstorming.router)  # DEPRECATED
 app.include_router(styles.router)
 app.include_router(reviews.router)

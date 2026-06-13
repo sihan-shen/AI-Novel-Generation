@@ -72,3 +72,72 @@ async def delete_chapter(project_id: str, chapter_id: str, request: Request, db:
     ChapterService.delete(db, chapter_id)
     chapters = ChapterService.list_by_project(db, project_id)
     return templates.TemplateResponse(request, "writer/_sidebar.html", {"chapters": chapters, "project_id": project_id})
+
+
+# ---- JSON API endpoints ----
+
+from app.schemas.response import APIResponse
+from fastapi import HTTPException
+from pydantic import BaseModel
+from datetime import datetime
+
+
+class ChapterResponse(BaseModel):
+    id: str
+    project_id: str
+    outline_id: str | None
+    title: str
+    content: str
+    status: str
+    sort_order: int
+    notes: str
+    word_count: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+api_router = APIRouter(prefix="/api/projects/{project_id}/chapters", tags=["chapters"])
+
+
+@api_router.get("", response_model=APIResponse[list[ChapterResponse]])
+async def api_list_chapters(project_id: str, db: Session = Depends(get_db)):
+    chapters = ChapterService.list_by_project(db, project_id)
+    return APIResponse(data=chapters)
+
+
+@api_router.post("", response_model=APIResponse[ChapterResponse], status_code=201)
+async def api_create_chapter(project_id: str, body: ChapterCreate, db: Session = Depends(get_db)):
+    data = body.model_copy(update={"project_id": project_id})
+    chapter = ChapterService.create(db, data)
+    return APIResponse(data=chapter)
+
+
+@api_router.get("/{chapter_id}", response_model=APIResponse[ChapterResponse])
+async def api_get_chapter(chapter_id: str, project_id: str, db: Session = Depends(get_db)):
+    chapter = ChapterService.get(db, chapter_id)
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+    return APIResponse(data=chapter)
+
+
+@api_router.put("/{chapter_id}", response_model=APIResponse[ChapterResponse])
+async def api_update_chapter(chapter_id: str, project_id: str, body: ChapterUpdate, db: Session = Depends(get_db)):
+    chapter = ChapterService.update(db, chapter_id, body)
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+    return APIResponse(data=chapter)
+
+
+@api_router.delete("/{chapter_id}", response_model=APIResponse[dict])
+async def api_delete_chapter(chapter_id: str, project_id: str, db: Session = Depends(get_db)):
+    ChapterService.delete(db, chapter_id)
+    return APIResponse(data={"deleted": chapter_id})
+
+
+@api_router.post("/reorder", response_model=APIResponse[dict])
+async def api_reorder_chapters(project_id: str, body: dict, db: Session = Depends(get_db)):
+    ChapterService.reorder(db, body["items"])
+    return APIResponse(data={"ok": True})
