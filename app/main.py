@@ -1,14 +1,14 @@
 import os
 from pathlib import Path
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+from fastapi.responses import RedirectResponse
 
-from sqlalchemy import text
 from app.database import init_db
-from app.routers import projects, outlines, settings, chapters, styles, reviews, ideas, config, outline_gen, search, agent
+from app.routers import (
+    projects, outlines, settings, chapters, styles,
+    reviews, ideas, config, outline_gen, search, agent,
+)
 
 app = FastAPI(title="AI Novel Generation Tool")
 
@@ -25,32 +25,18 @@ app.add_middleware(
 )
 
 BASE_DIR = Path(__file__).parent
-app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+
+# JSON API routers
 app.include_router(projects.router)
-from app.routers.projects import api_router as projects_api
-app.include_router(projects_api)
 app.include_router(outlines.router)
-from app.routers.outlines import api_router as outlines_api
-app.include_router(outlines_api)
 app.include_router(settings.router)
-from app.routers.settings import api_router as settings_api
-app.include_router(settings_api)
 app.include_router(chapters.router)
-from app.routers.chapters import api_router as chapters_api
-app.include_router(chapters_api)
-# app.include_router(brainstorming.router)  # DEPRECATED
 app.include_router(styles.router)
-from app.routers.styles import api_router as styles_api
-app.include_router(styles_api)
 app.include_router(reviews.router)
-from app.routers.reviews import api_router as reviews_api
-app.include_router(reviews_api)
 app.include_router(ideas.router)
-from app.routers.ideas import api_router as ideas_api
-app.include_router(ideas_api)
 app.include_router(config.router)
-from app.routers.config import api_router as config_api
-app.include_router(config_api)
+
+# Functional routers (SSE / agent / search / outline generation)
 app.include_router(outline_gen.router)
 app.include_router(search.router)
 app.include_router(agent.router)
@@ -58,13 +44,10 @@ app.include_router(agent.router)
 
 @app.get("/brainstorm")
 async def brainstorm_redirect(project_id: str | None = None):
-    """Redirect old /brainstorm page to agent chat."""
+    """Redirect old /brainstorm page to the Next.js agent chat."""
     if project_id:
         return RedirectResponse(url=f"/project/{project_id}/agent", status_code=302)
     return RedirectResponse(url="/", status_code=302)
-
-
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
 @app.on_event("startup")
@@ -114,11 +97,6 @@ def _recover_agent_tasks():
         db.close()
 
 
-@app.get("/", response_class=HTMLResponse)
-async def dashboard(request: Request):
-    return templates.TemplateResponse(request, "dashboard.html", {"request": request})
-
-
 def _get_server_config():
     """Read host/port from DB config, falling back to env defaults."""
     try:
@@ -138,8 +116,6 @@ def start():
     host, port = _get_server_config()
     uvicorn.run("app.main:app", host=host, port=port)
 
-
-# Auth middleware will be registered here in Phase 2+
 
 if __name__ == "__main__":
     import uvicorn

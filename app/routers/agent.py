@@ -1,12 +1,10 @@
-"""Agent router — page rendering + SSE streaming + task API."""
+"""Agent router — SSE streaming + task API."""
 
 import asyncio
 import json
 import uuid
-from pathlib import Path
-from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import HTMLResponse, StreamingResponse
-from fastapi.templating import Jinja2Templates
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -209,9 +207,6 @@ async def _handle_brainstorm_turn(
 
 
 router = APIRouter(prefix="/project/{project_id}/agent", tags=["agent"])
-templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
-
-
 class ChatRequest(BaseModel):
     message: str
     chapter_outline_id: str | None = None
@@ -222,15 +217,6 @@ class ConfirmRequest(BaseModel):
     confirm_id: str
     action: str  # 'approve' | 'reject' | 'modify'
     modification: str | None = None
-
-
-@router.get("", response_class=HTMLResponse)
-async def agent_page(request: Request, project_id: str, db: Session = Depends(get_db)):
-    from app.services.project_service import ProjectService
-    project = ProjectService.get(db, project_id)
-    if not project:
-        return HTMLResponse("Project not found", status_code=404)
-    return templates.TemplateResponse(request, "agent/index.html", {"project": project})
 
 
 @router.post("/chat/stream")

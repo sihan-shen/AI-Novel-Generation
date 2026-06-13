@@ -3,22 +3,25 @@ def test_pytest_runs():
 
 
 def test_app_imports(client):
-    response = client.get("/")
+    response = client.get("/api/projects")
     assert response.status_code == 200
 
 
 def test_db_session_override_round_trip(client, db_session):
-    """Inserting via db_session must be visible to a route that uses get_db."""
+    """Inserting via db_session must be visible to the JSON API route."""
     from app.models.project import Project
     db_session.add(Project(id="smoke-p1", title="冒烟测试项目", description=""))
     db_session.commit()
 
-    response = client.get("/projects/list")
+    response = client.get("/api/projects")
     assert response.status_code == 200
-    assert "冒烟测试项目" in response.text
+    data = response.json()["data"]
+    assert any(p["title"] == "冒烟测试项目" for p in data)
 
 
-def test_static_mount_exists(client):
-    # 404 is fine — we just want to confirm /static/ is registered (not 405 Method Not Allowed)
-    response = client.get("/static/nonexistent.js")
-    assert response.status_code == 404
+def test_openapi_spec_available(client):
+    response = client.get("/openapi.json")
+    assert response.status_code == 200
+    spec = response.json()
+    assert "paths" in spec
+    assert "/api/projects" in spec["paths"]

@@ -1,94 +1,21 @@
-from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from pathlib import Path
-from fastapi.templating import Jinja2Templates
 
 from app.database import get_db
-from app.services.config_service import ConfigService
-from app.llm.provider_registry import PROVIDERS, fetch_models
-
-router = APIRouter(prefix="/config", tags=["config"])
-templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
-
-
-@router.get("", response_class=HTMLResponse)
-async def config_page(request: Request, db: Session = Depends(get_db)):
-    cfg = ConfigService.get_all(db)
-    return templates.TemplateResponse(request, "config/index.html", {
-        "cfg": cfg, "providers": PROVIDERS,
-    })
-
-
-@router.post("/save", response_class=HTMLResponse)
-async def config_save(request: Request, db: Session = Depends(get_db)):
-    form = await request.form()
-    items = {}
-    for key in ("llm_provider", "api_key", "base_url", "model", "host", "port"):
-        if key in form:
-            items[key] = form[key]
-    ConfigService.set_many(db, items)
-    cfg = ConfigService.get_all(db)
-    return templates.TemplateResponse(request, "config/_form.html", {
-        "cfg": cfg, "providers": PROVIDERS, "saved": True,
-    })
-
-
-@router.post("/agent-autonomy")
-async def save_agent_autonomy(
-    request: Request,
-    milestone_granularity: str = Form("chapter"),
-    intervention_threshold: str = Form("conflict_only"),
-    write_mode: str = Form("draft"),
-    max_rewrite_rounds: int = Form(3),
-    token_budget: int = Form(100000),
-    db: Session = Depends(get_db),
-):
-    configs = {
-        "agent_milestone_granularity": milestone_granularity,
-        "agent_intervention_threshold": intervention_threshold,
-        "agent_write_mode": write_mode,
-        "agent_max_rewrite_rounds": str(max_rewrite_rounds),
-        "agent_token_budget": str(token_budget),
-    }
-    for key, value in configs.items():
-        ConfigService.set(db, key, value)
-    return HTMLResponse('<div style="color:var(--success);">配置已保存</div>')
-
-
-@router.get("/fetch-models")
-async def fetch_models_endpoint(request: Request, db: Session = Depends(get_db)):
-    cfg = ConfigService.get_all(db)
-    provider = cfg["llm_provider"]
-    api_key = cfg["api_key"]
-    base_url = cfg["base_url"]
-    try:
-        models = await fetch_models(provider, api_key, base_url)
-        return templates.TemplateResponse(request, "config/_model_list.html", {
-            "models": models, "current": cfg["model"],
-        })
-    except Exception as e:
-        return HTMLResponse(
-            f'<p class="text-sm text-red-500 mt-2">获取失败: {e}</p>'
-        )
-
-
-# ---------------------------------------------------------------------------
-# JSON API (Phase 1)
-# ---------------------------------------------------------------------------
 from app.schemas.response import APIResponse
+from app.services.config_service import ConfigService
 
-api_router = APIRouter(prefix="/api/config", tags=["config"])
+router = APIRouter(prefix="/api/config", tags=["config"])
 
 
-@api_router.get("", response_model=APIResponse[dict])
-async def api_get_config(db: Session = Depends(get_db)):
+@router.get("", response_model=APIResponse[dict])
+async def get_config(db: Session = Depends(get_db)):
     cfg = ConfigService.get_all(db)
     return APIResponse(data=cfg)
 
 
-@api_router.post("", response_model=APIResponse[dict])
-async def api_save_config(body: dict, db: Session = Depends(get_db)):
+@router.post("", response_model=APIResponse[dict])
+async def save_config(body: dict, db: Session = Depends(get_db)):
     for key in ("llm_provider", "api_key", "base_url", "model", "host", "port"):
         if key in body:
             ConfigService.set(db, key, body[key])

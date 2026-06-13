@@ -2,12 +2,12 @@ from app.models.project import Project
 from app.models.outline import Outline
 
 
-def test_agent_page_renders(client, db_session):
+def test_agent_tasks_endpoint(client, db_session):
     db_session.add(Project(id="p1", title="Test Project"))
     db_session.commit()
-    response = client.get("/project/p1/agent")
+    response = client.get("/project/p1/agent/tasks")
     assert response.status_code == 200
-    assert "Agent" in response.text or "agent" in response.text.lower()
+    assert "tasks" in response.json()
 
 
 def test_agent_chat_stream_starts(client, db_session):
