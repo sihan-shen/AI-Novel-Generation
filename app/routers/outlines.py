@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi.templating import Jinja2Templates
 
 from app.database import get_db
-from app.schemas.outline import OutlineCreate, OutlineUpdate
+from app.schemas.outline import OutlineCreate, OutlineUpdate, OutlineResponse
 from app.services.outline_service import OutlineService
 from app.services.project_service import ProjectService
 
@@ -83,3 +83,55 @@ async def reorder_outlines(project_id: str, request: Request, db: Session = Depe
     data = await request.json()
     OutlineService.reorder(db, data["items"])
     return HTMLResponse("ok")
+
+
+# ---------------------------------------------------------------------------
+# JSON API endpoints (Phase 1)
+# ---------------------------------------------------------------------------
+from app.schemas.response import APIResponse
+from fastapi import HTTPException
+
+api_router = APIRouter(prefix="/api/projects/{project_id}/outlines", tags=["outlines"])
+
+
+@api_router.get("", response_model=APIResponse[list[OutlineResponse]])
+async def api_get_outline_tree(project_id: str, db: Session = Depends(get_db)):
+    outlines = OutlineService.get_tree(db, project_id)
+    return APIResponse(data=outlines)
+
+
+@api_router.post("", response_model=APIResponse[OutlineResponse], status_code=201)
+async def api_create_outline(project_id: str, body: OutlineCreate, db: Session = Depends(get_db)):
+    data = body.model_copy(update={"project_id": project_id})
+    outline = OutlineService.create(db, data)
+    return APIResponse(data=outline)
+
+
+@api_router.get("/{outline_id}", response_model=APIResponse[OutlineResponse])
+async def api_get_outline(project_id: str, outline_id: str, db: Session = Depends(get_db)):
+    outline = OutlineService.get(db, outline_id)
+    if not outline:
+        raise HTTPException(status_code=404, detail="Outline not found")
+    return APIResponse(data=outline)
+
+
+@api_router.put("/{outline_id}", response_model=APIResponse[OutlineResponse])
+async def api_update_outline(project_id: str, outline_id: str, body: OutlineUpdate, db: Session = Depends(get_db)):
+    outline = OutlineService.update(db, outline_id, body)
+    if not outline:
+        raise HTTPException(status_code=404, detail="Outline not found")
+    return APIResponse(data=outline)
+
+
+@api_router.delete("/{outline_id}", response_model=APIResponse[dict])
+async def api_delete_outline(project_id: str, outline_id: str, db: Session = Depends(get_db)):
+    ok, _ = OutlineService.delete(db, outline_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Outline not found")
+    return APIResponse(data={"deleted": outline_id})
+
+
+@api_router.post("/reorder", response_model=APIResponse[dict])
+async def api_reorder_outlines(project_id: str, body: dict, db: Session = Depends(get_db)):
+    OutlineService.reorder(db, body["items"])
+    return APIResponse(data={"ok": True})

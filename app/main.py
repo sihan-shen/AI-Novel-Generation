@@ -30,6 +30,8 @@ app.include_router(projects.router)
 from app.routers.projects import api_router as projects_api
 app.include_router(projects_api)
 app.include_router(outlines.router)
+from app.routers.outlines import api_router as outlines_api
+app.include_router(outlines_api)
 app.include_router(settings.router)
 app.include_router(chapters.router)
 # app.include_router(brainstorming.router)  # DEPRECATED
