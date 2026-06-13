@@ -100,11 +100,9 @@ export default function SettingsPage() {
           <p className="mt-1 text-sm text-zinc-500">人物、世界观、组织等设定条目</p>
         </div>
         <Dialog open={openCreate} onOpenChange={setOpenCreate}>
-          <DialogTrigger>
-            <Button size="sm">
-              <Plus className="size-4" />
-              新建
-            </Button>
+          <DialogTrigger className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-200">
+            <Plus className="size-4" />
+            新建
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>

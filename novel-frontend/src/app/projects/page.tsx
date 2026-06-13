@@ -47,11 +47,9 @@ export default function ProjectsPage() {
           <p className="mt-1 text-sm text-zinc-500">管理你的小说项目</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger>
-            <Button size="sm">
-              <Plus className="size-4" />
-              新建项目
-            </Button>
+          <DialogTrigger className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-200">
+            <Plus className="size-4" />
+            新建项目
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
