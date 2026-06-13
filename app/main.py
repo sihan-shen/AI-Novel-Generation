@@ -26,6 +26,19 @@ app.add_middleware(
 
 BASE_DIR = Path(__file__).parent
 
+
+@app.get("/")
+async def root():
+    """API root — the frontend UI is served by Next.js (localhost:3000 in dev)."""
+    return {
+        "app": "Novel Forge API",
+        "version": "0.2.0",
+        "docs": "/docs",
+        "openapi": "/openapi.json",
+        "frontend": "http://localhost:3000",
+    }
+
+
 # JSON API routers
 app.include_router(projects.router)
 app.include_router(outlines.router)
