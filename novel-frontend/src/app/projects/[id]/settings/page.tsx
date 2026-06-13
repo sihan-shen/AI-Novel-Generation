@@ -97,10 +97,10 @@ export default function SettingsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">设定集</h1>
-          <p className="mt-1 text-sm text-zinc-500">人物、世界观、组织等设定条目</p>
+          <p className="mt-1 text-sm text-muted-foreground">人物、世界观、组织等设定条目</p>
         </div>
         <Dialog open={openCreate} onOpenChange={setOpenCreate}>
-          <DialogTrigger className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-200">
+          <DialogTrigger className="inline-flex items-center gap-2 rounded-md bg-secondary text-secondary-foreground hover:bg-muted px-3 py-1.5 text-sm font-medium transition-colors">
             <Plus className="size-4" />
             新建
           </DialogTrigger>
@@ -157,8 +157,8 @@ export default function SettingsPage() {
             onClick={() => setCategory(cat === "全部" ? null : cat)}
             className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
               (cat === "全部" && !category) || cat === category
-                ? "bg-zinc-900 font-medium text-white dark:bg-zinc-100 dark:text-black"
-                : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                ? "bg-secondary font-medium text-secondary-foreground"
+                : "text-muted-foreground hover:bg-muted"
             }`}
           >
             {cat}
@@ -168,7 +168,7 @@ export default function SettingsPage() {
 
       {isLoading ? (
         <div className="mt-16 flex justify-center">
-          <Loader2 className="size-6 animate-spin text-zinc-400" />
+          <Loader2 className="size-6 animate-spin" style={{ color: "var(--text-muted)" }} />
         </div>
       ) : (
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -204,19 +204,19 @@ export default function SettingsPage() {
                     <CardTitle className="flex items-center gap-2 text-base">
                       {s.name}
                       <button
-                        className="rounded p-0.5 opacity-0 transition-opacity hover:bg-zinc-100 group-hover:opacity-100"
+                        className="rounded p-0.5 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
                         onClick={() => startEdit(s)}
                       >
-                        <Edit3 className="size-3 text-zinc-400" />
+                        <Edit3 className="size-3" style={{ color: "var(--text-muted)" }} />
                       </button>
                     </CardTitle>
-                    <span className="text-xs text-zinc-400">{s.category}</span>
+                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>{s.category}</span>
                   </div>
                 )}
               </CardHeader>
               {editingId !== s.id && s.summary && (
                 <CardContent>
-                  <p className="line-clamp-2 text-sm text-zinc-500">{s.summary}</p>
+                  <p className="line-clamp-2 text-sm text-muted-foreground">{s.summary}</p>
                 </CardContent>
               )}
               <button
@@ -231,7 +231,7 @@ export default function SettingsPage() {
       )}
 
       {!isLoading && settings?.length === 0 && (
-        <p className="mt-16 text-center text-zinc-400">
+        <p className="mt-16 text-center" style={{ color: "var(--text-muted)" }}>
           还没有设定条目，创建一个吧。
         </p>
       )}

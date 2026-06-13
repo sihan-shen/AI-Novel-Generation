@@ -19,7 +19,7 @@ export default function ErrorPage({
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
       <AlertTriangle className="size-10 text-amber-500" />
       <h2 className="text-xl font-semibold">出了点问题</h2>
-      <p className="max-w-md text-sm text-zinc-500">
+      <p className="max-w-md text-sm text-muted-foreground">
         {error.message || "页面加载出错，请重试。"}
       </p>
       <Button onClick={reset} variant="outline" size="sm">

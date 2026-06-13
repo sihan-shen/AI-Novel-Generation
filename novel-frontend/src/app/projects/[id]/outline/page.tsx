@@ -59,19 +59,19 @@ export default function OutlinePage() {
     return (
       <div>
         <div
-          className={`flex items-center gap-1 rounded px-2 py-1.5 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-900 group`}
+          className={`flex items-center gap-1 rounded px-2 py-1.5 text-sm hover:bg-muted group`}
           style={{ paddingLeft: `${12 + depth * 20}px` }}
         >
           {hasChildren ? (
             <button onClick={() => toggle(node.id)} className="p-0.5">
               {isOpen ? (
-                <ChevronDown className="size-3.5 text-zinc-400" />
+                <ChevronDown className="size-3.5" style={{ color: "var(--text-muted)" }} />
               ) : (
-                <ChevronRight className="size-3.5 text-zinc-400" />
+                <ChevronRight className="size-3.5" style={{ color: "var(--text-muted)" }} />
               )}
             </button>
           ) : (
-            <FileText className="size-3.5 text-zinc-300" />
+            <FileText className="size-3.5" style={{ color: "var(--text-secondary)" }} />
           )}
 
           {editingId === node.id ? (
@@ -126,7 +126,7 @@ export default function OutlinePage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">大纲</h1>
-          <p className="mt-1 text-sm text-zinc-500">管理卷章节结构</p>
+          <p className="mt-1 text-sm text-muted-foreground">管理卷章节结构</p>
         </div>
       </div>
 
@@ -139,7 +139,7 @@ export default function OutlinePage() {
           className="max-w-sm"
         />
         {parentId && (
-          <span className="text-xs text-zinc-400">
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
             添加到: {tree?.find((n) => n.id === parentId)?.title ?? parentId}
             <button className="ml-1 underline" onClick={() => setParentId(null)}>
               取消
@@ -157,10 +157,10 @@ export default function OutlinePage() {
         <CardContent className="py-4">
           {isLoading ? (
             <div className="flex justify-center py-8">
-              <Loader2 className="size-6 animate-spin text-zinc-400" />
+              <Loader2 className="size-6 animate-spin" style={{ color: "var(--text-muted)" }} />
             </div>
           ) : tree?.length === 0 ? (
-            <p className="py-8 text-center text-zinc-400">还没有大纲节点。</p>
+            <p className="py-8 text-center" style={{ color: "var(--text-muted)" }}>还没有大纲节点。</p>
           ) : (
             <div className="space-y-0.5">
               {tree?.map((node) => (
