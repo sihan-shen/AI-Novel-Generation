@@ -33,6 +33,8 @@ app.include_router(outlines.router)
 from app.routers.outlines import api_router as outlines_api
 app.include_router(outlines_api)
 app.include_router(settings.router)
+from app.routers.settings import api_router as settings_api
+app.include_router(settings_api)
 app.include_router(chapters.router)
 # app.include_router(brainstorming.router)  # DEPRECATED
 app.include_router(styles.router)

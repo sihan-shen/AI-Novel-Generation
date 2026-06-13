@@ -101,3 +101,70 @@ async def delete_setting(project_id: str, setting_id: str, request: Request, db:
     SettingService.delete(db, setting_id)
     settings = SettingService.list_by_project(db, project_id)
     return templates.TemplateResponse(request, "settings/_list.html", {"settings": settings, "project_id": project_id})
+
+
+from app.schemas.response import APIResponse
+from pydantic import BaseModel
+from datetime import datetime
+
+
+class SettingResponse(BaseModel):
+    id: str
+    project_id: str
+    category: str
+    name: str
+    summary: str
+    content: str
+    weight: int
+    status: str
+    tags: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+api_router = APIRouter(prefix="/api/projects/{project_id}/settings", tags=["settings"])
+
+
+@api_router.get("", response_model=APIResponse[list[SettingResponse]])
+async def api_list_settings(project_id: str, category: str | None = None, db: Session = Depends(get_db)):
+    settings = SettingService.list_by_project(db, project_id, category)
+    return APIResponse(data=settings)
+
+
+@api_router.post("", response_model=APIResponse[SettingResponse], status_code=201)
+async def api_create_setting(project_id: str, body: SettingCreate, db: Session = Depends(get_db)):
+    data = body.model_copy(update={"project_id": project_id})
+    setting = SettingService.create(db, data)
+    return APIResponse(data=setting)
+
+
+@api_router.get("/{setting_id}", response_model=APIResponse[dict])
+async def api_get_setting(setting_id: str, project_id: str, db: Session = Depends(get_db)):
+    setting = SettingService.get(db, setting_id)
+    if not setting:
+        raise HTTPException(status_code=404, detail="Setting not found")
+    relations = SettingService.get_relations(db, setting_id)
+    return APIResponse(data={"setting": SettingResponse.model_validate(setting), "relations": relations})
+
+
+@api_router.put("/{setting_id}", response_model=APIResponse[SettingResponse])
+async def api_update_setting(setting_id: str, project_id: str, body: SettingUpdate, db: Session = Depends(get_db)):
+    setting = SettingService.update(db, setting_id, body)
+    if not setting:
+        raise HTTPException(status_code=404, detail="Setting not found")
+    return APIResponse(data=setting)
+
+
+@api_router.delete("/{setting_id}", response_model=APIResponse[dict])
+async def api_delete_setting(setting_id: str, project_id: str, db: Session = Depends(get_db)):
+    SettingService.delete(db, setting_id)
+    return APIResponse(data={"deleted": setting_id})
+
+
+@api_router.post("/reorder", response_model=APIResponse[dict])
+async def api_reorder_settings(project_id: str, body: dict, db: Session = Depends(get_db)):
+    SettingService.reorder(db, body["items"])
+    return APIResponse(data={"ok": True})
