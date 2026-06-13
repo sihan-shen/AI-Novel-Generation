@@ -2,7 +2,6 @@
 
 import { useThemeStore } from "@/stores/theme";
 import { Moon, SunMedium, Monitor } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +14,32 @@ const THEME_OPTIONS = [
   { value: "sepia" as const, label: "暖纸", icon: SunMedium },
   { value: "system" as const, label: "跟随系统", icon: Monitor },
 ];
+
+/* Shared ghost-button styles for the trigger (prevents <button> nested inside <button>) */
+const triggerBase =
+  "inline-flex items-center justify-center rounded-lg text-sm font-medium whitespace-nowrap transition-all outline-none select-none cursor-pointer";
+
+function ThemeTrigger({ collapsed, currentIcon, label }: { collapsed: boolean; currentIcon: React.ReactNode; label?: string }) {
+  return (
+    <span
+      className={triggerBase}
+      style={{
+        gap: collapsed ? 0 : "0.375rem",
+        height: collapsed ? "2rem" : "1.75rem",
+        padding: collapsed ? "0" : "0 0.625rem",
+        width: collapsed ? "2rem" : "100%",
+        justifyContent: collapsed ? "center" : "flex-start",
+        color: "var(--text-secondary)",
+        background: "transparent",
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elevated-hover)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+    >
+      {currentIcon}
+      {!collapsed && label && <span className="text-sm">{label}</span>}
+    </span>
+  );
+}
 
 export function ThemeToggle({ collapsed = false }: { collapsed?: boolean }) {
   const theme = useThemeStore((s) => s.theme);
@@ -35,34 +60,16 @@ export function ThemeToggle({ collapsed = false }: { collapsed?: boolean }) {
     </DropdownMenuItem>
   ));
 
-  if (collapsed) {
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger>
-          <Button variant="ghost" size="icon" className="size-8 shrink-0">
-            <CurrentIcon className="size-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" side="right">
-          {items}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  }
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start gap-2"
-        >
-          <CurrentIcon className="size-4" />
-          <span className="text-sm">{currentOption?.label}</span>
-        </Button>
+        <ThemeTrigger
+          collapsed={collapsed}
+          currentIcon={<CurrentIcon className="size-4" />}
+          label={currentOption?.label}
+        />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align={collapsed ? "start" : "end"} side={collapsed ? "right" : "bottom"}>
         {items}
       </DropdownMenuContent>
     </DropdownMenu>

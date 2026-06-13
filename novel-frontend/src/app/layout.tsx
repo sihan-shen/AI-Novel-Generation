@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { QueryProvider } from "@/lib/query-provider";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -31,14 +32,14 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <head>
-        <script
+      <body className="flex h-full">
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem("novel-forge-theme")||"dark";if(t==="system")t=window.matchMedia("(prefers-color-scheme: light)").matches?"sepia":"dark";document.documentElement.classList.add(t);document.documentElement.setAttribute("data-theme",t)}catch(e){document.documentElement.classList.add("dark");document.documentElement.setAttribute("data-theme","dark")}})()`,
           }}
         />
-      </head>
-      <body className="flex h-full">
         <QueryProvider>
           <ThemeProvider>
             <Sidebar />
