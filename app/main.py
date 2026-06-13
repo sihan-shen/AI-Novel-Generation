@@ -43,6 +43,8 @@ app.include_router(styles.router)
 from app.routers.styles import api_router as styles_api
 app.include_router(styles_api)
 app.include_router(reviews.router)
+from app.routers.reviews import api_router as reviews_api
+app.include_router(reviews_api)
 app.include_router(ideas.router)
 from app.routers.ideas import api_router as ideas_api
 app.include_router(ideas_api)
