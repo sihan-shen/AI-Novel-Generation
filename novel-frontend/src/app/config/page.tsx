@@ -34,17 +34,28 @@ export default function ConfigPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-16">
-        <Loader2 className="size-6 animate-spin text-zinc-400" />
+        <Loader2 className="size-6 animate-spin" style={{ color: "var(--accent-base)" }} />
       </div>
     );
   }
 
   return (
     <div className="p-8">
-      <div className="flex items-center justify-between">
+      {/* Page header */}
+      <div className="mb-8 flex items-end justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">配置</h1>
-          <p className="mt-1 text-sm text-zinc-500">应用和 LLM 设置</p>
+          <span
+            className="inline-block rounded-full px-2.5 py-0.5 text-[0.7rem] font-medium tracking-wide"
+            style={{ background: "var(--accent-subtle)", color: "var(--accent-text)" }}
+          >
+            配置
+          </span>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
+            配置
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-tertiary)" }}>
+            应用和 LLM 设置
+          </p>
         </div>
         <Button size="sm" onClick={handleSave} disabled={save.isPending}>
           <Save className="size-4" />
@@ -55,7 +66,9 @@ export default function ConfigPage() {
       <div className="mt-6 grid gap-6 sm:grid-cols-2">
         {Object.entries(FIELD_LABELS).map(([key, label]) => (
           <div key={key} className="space-y-1.5">
-            <label htmlFor={key} className="text-sm font-medium">{label}</label>
+            <label htmlFor={key} className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+              {label}
+            </label>
             <Input
               id={key}
               value={form[key] ?? ""}
@@ -67,7 +80,9 @@ export default function ConfigPage() {
       </div>
 
       {save.data && (
-        <p className="mt-4 text-sm text-green-600">配置已保存。</p>
+        <p className="mt-4 text-sm" style={{ color: "var(--success-text)" }}>
+          配置已保存。
+        </p>
       )}
     </div>
   );
