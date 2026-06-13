@@ -81,6 +81,9 @@
 
   --shadow-card: 0 1px 3px rgba(0,0,0,0.06);
   --shadow-dialog: 0 8px 32px rgba(0,0,0,0.10);
+
+  /* 代码块 sepia 覆盖 */
+  --surface-code: #f0ece4;
 }
 ```
 
@@ -190,11 +193,15 @@
 --badge-processing-bg: var(--processing-subtle);
 --badge-processing-text: var(--processing-text);
 
-/* 消息气泡 (Chat) */
+/* 玻璃表面（通用，不绑定 Chat） */
+--surface-glass-bg: rgba(255,255,255,0.03);
+--surface-glass-border: rgba(255,255,255,0.06);
+
+/* 消息气泡 (Chat) — 引用通用玻璃 token */
 --bubble-user-bg: var(--accent-base);
 --bubble-user-text: #ffffff;
---bubble-assistant-bg: rgba(255,255,255,0.03);
---bubble-assistant-border: rgba(255,255,255,0.06);
+--bubble-assistant-bg: var(--surface-glass-bg);
+--bubble-assistant-border: var(--surface-glass-border);
 
 /* 分隔线 */
 --separator: var(--border-subtle);
@@ -223,10 +230,11 @@
 --scrollbar-thumb-sepia: rgba(0,0,0,0.10);
 --scrollbar-thumb-sepia-hover: rgba(0,0,0,0.20);
 
-/* 代码块 */
---code-block-bg: #0c0c10;
---code-block-bg-sepia: #f0ece4;
---code-block-border: var(--border-subtle);
+/* 代码块 — 主题负责映射，不绑定场景色值 */
+--surface-code: #0c0c10;
+--surface-code-border: var(--border-subtle);
+--surface-code-header: var(--bg-elevated);
+--text-code: var(--text-secondary);
 ```
 
 ### 3. Focus / Accessibility 体系
@@ -293,12 +301,40 @@ textarea:focus:not(:focus-visible),
 --spacing-2xl: 2rem;
 ```
 
-### 6. 卡片等级
+### 6. 布局尺寸 Token
+
+```css
+/* 侧边栏 */
+--layout-sidebar-expanded: 240px;
+--layout-sidebar-collapsed: 48px;
+--layout-sidebar-mobile-drawer: 280px;
+
+/* 写作区 */
+--layout-writer-sidebar: 224px;
+--layout-writer-max-width: 46rem;
+
+/* Chat */
+--layout-chat-input-height: 56px;
+--layout-chat-max-width: 48rem;
+
+/* Dialog */
+--layout-dialog-max-width: 640px;
+--layout-dialog-narrow: 480px;
+
+/* Dashboard 网格断点 */
+--layout-grid-col-desktop: 3;
+--layout-grid-col-tablet: 2;
+--layout-grid-col-mobile: 1;
+```
+
+所有页面尺寸引用此系列 Token，禁止硬编码 `w-56` / `w-60` / `240px`。
+
+### 7. 卡片等级
 
 | 等级 | 实现 | 适用场景 |
 |------|------|----------|
 | **Solid** | `background: var(--surface-card)` `border: 1px solid var(--border-subtle)` `box-shadow: var(--shadow-card)` | Dashboard 项目卡片、Ideas、Styles、Dialog |
-| **Glass** | `background: var(--bubble-assistant-bg)` `backdrop-filter: blur(6px)` `border: 1px solid var(--bubble-assistant-border)` | Chat 气泡、浮动面板 |
+| **Glass** | `background: var(--surface-glass-bg)` `backdrop-filter: blur(6px)` `border: 1px solid var(--surface-glass-border)` | Chat 气泡、浮动面板、Command Palette、Quick Search |
 
 **Hover（统一）：**
 
@@ -310,7 +346,7 @@ textarea:focus:not(:focus-visible),
 }
 ```
 
-### 7. 组件级规范
+### 8. 组件级规范
 
 #### Button
 
@@ -370,7 +406,7 @@ textarea:focus:not(:focus-visible),
 - 颜色：`var(--separator)`
 - 高度：`1px`
 
-### 8. Z-index 层级体系
+### 9. Z-index 层级体系
 
 ```css
 --z-sidebar: 40;
@@ -385,7 +421,7 @@ textarea:focus:not(:focus-visible),
 
 所有浮动层组件必须引用此体系，禁止随意使用 `z-10` / `z-50` 等魔数。
 
-### 9. 滚动条规范
+### 10. 滚动条规范
 
 ```css
 /* Dark */
@@ -415,7 +451,7 @@ textarea:focus:not(:focus-visible),
 
 组件滚动区域统一使用此样式，不单独定义。
 
-### 10. 标签颜色算法
+### 11. 标签颜色算法
 
 项目类型不硬编码映射。改为**标签颜色池 + 哈希分配**：
 
@@ -532,12 +568,11 @@ Content 区域使用 grid/flex 而非 margin-left 驱动
 | 主题切换 | 下拉菜单（暗色/暖纸/跟随） | 图标按钮，点击弹出小菜单 |
 | 折叠按钮 | 文字 "收起" + 图标 | 图标 "展开" |
 
-**Tooltip 功能需求**（不限定实现方式）：
+**Tooltip 功能需求**（实现方式不限，无需依赖特定库）：
 - hover 200ms delay 后出现
 - 自动避让窗口边缘
 - 支持长文本（截断或换行）
 - 支持键盘 focus 触发
-- 建议使用 Radix Tooltip 或 Floating UI 等成熟方案
 
 ### 3. 响应式布局规范
 
@@ -548,7 +583,13 @@ Content 区域使用 grid/flex 而非 margin-left 驱动
 | **Mobile** | <768px | Drawer (overlay) | 1 列 | 隐藏章节栏，底部按钮切换 | 消息全宽，输入框固定底部 | Drawer 代替侧边栏 |
 
 **Dashboard 网格：** `grid-template-columns: repeat(3,1fr)` → `repeat(2,1fr)` → `1fr`
-**Mobile Drawer：** 宽 280px，`transform: translateX(-100%) → translateX(0)`，带遮罩 `var(--overlay-backdrop)`
+**Mobile Drawer：** 宽 `var(--layout-sidebar-mobile-drawer)` = 280px，`transform: translateX(-100%) → translateX(0)`，带遮罩 `var(--overlay-backdrop)`
+
+**Drawer 关闭策略**：
+- 点击遮罩层关闭
+- 按 `Escape` 键关闭
+- 路由跳转时自动关闭
+- 手势右滑关闭（可选）
 
 ### 4. 工作台 (Dashboard)
 
@@ -567,6 +608,12 @@ Content 区域使用 grid/flex 而非 margin-left 驱动
 - **章节结构**: 紫色竖线(2px) + 卷/部标签
 - **正文**: `0.95rem` / `line-height: 1.85` / 首行缩进 `2em`
 - **AI 建议**: Solid 卡片，左侧 3px 紫色边框 + `--accent-subtle` 背景
+- **图片**（预留）：
+  - 最大宽度不超过正文区域（`--layout-writer-max-width`）
+  - 居中显示，`border-radius: var(--radius-md)`
+  - 下方可接 `figcaption`（`--text-tertiary` 小字，居中）
+  - 响应式：移动端 `max-width: 100%` + `height: auto`
+  - 当前未启用，但 Markdown 渲染器应预留 `<img>` 样式
 - **底栏**: 字数 · 阅读时间 | 自动保存状态
 - **章节侧边栏**: 独立 224px，响应式见上表
 
@@ -578,8 +625,18 @@ Content 区域使用 grid/flex 而非 margin-left 驱动
 |------|------|------|
 | `user_message` | `var(--bubble-user-bg)` 实心气泡，右对齐 | 用户文本 |
 | `assistant_message` | Glass 气泡，左对齐 | AI 回复 |
-| `tool_call` | 折叠卡片，可展开，`--processing-subtle` 背景 | 函数调用 |
-| `tool_result` | 代码块样式，缩进 | 调用结果 |
+| `tool_call` | 折叠卡片，可展开，`--processing-subtle` 背景，左侧显示状态图标 | 函数调用。每个 tool_call 包含状态机：`pending → running → success / failed / cancelled` |
+| `tool_result` | 代码块样式，缩进，`--surface-code` 背景 | 调用返回结果 |
+
+**Tool Call 状态机**：每个 tool_call 消息携带 `status` 字段。
+
+| 状态 | 图标 | 样式 |
+|------|------|------|
+| `pending` | ⏳ | 灰色文字，`--text-muted`，表示已创建但还未执行 |
+| `running` | 🔄 旋转 | `--processing-text`，表示正在执行中 |
+| `success` | ✓ | `--success-text`，绿色，执行成功 |
+| `failed` | ✗ | `--danger-text`，红色，执行失败 |
+| `cancelled` | — | `--text-muted`，灰色删除线，被后续调用取消 |
 | `reasoning` | 半透明折叠区域（见下方 Reasoning Panel） | 模型额外分析信息 |
 | `system` | 居中迷你徽章 | 系统通知/错误 |
 | `streaming` | 跳动紫点动画 | 流式响应占位 |
@@ -591,7 +648,10 @@ Content 区域使用 grid/flex 而非 margin-left 驱动
 - 默认折叠，显示紫色标签徽章（内容类型由 API 动态指定）
 - 展开后半透明背景 (`--accent-subtle`)，斜体灰色文字
 - 与主回复之间用 `--separator` 分隔
-- 标签文本由 API 返回的 `label` 字段决定，UI 不做硬编码
+- 标签文本由 API 返回的 `label` 字段决定
+  - label 最大 **32 字符**，超出用 `text-overflow: ellipsis` 省略
+  - label 为空时隐藏整个 Panel（不显示空折叠区）
+- UI 不做额外硬编码标签
 
 #### 长消息折叠
 
@@ -611,7 +671,8 @@ Content 区域使用 grid/flex 而非 margin-left 驱动
 | 粗体/斜体 | 标准 markdown |
 | 列表 | 缩进 + 间距 0.35rem |
 | 行内代码 | `--bg-elevated` 背景，`--accent-text` 文字，`--radius-sm` |
-| 代码块 | `var(--code-block-bg)`（dark）/ `var(--code-block-bg-sepia)`（sepia），等宽字体，顶栏含语言标签+复制按钮，边框 `var(--code-block-border)` |
+| 代码块 | `var(--surface-code)`，等宽字体，顶栏 `var(--surface-code-header)` 含语言标签+复制按钮，边框 `var(--surface-code-border)` |
+| 表格 | `<table>` 全宽，`<th>` `--bg-elevated` 背景，`<td>` `--border-subtle` 分割线，`overflow-x: auto` 容器包裹（移动端可横向滚动） |
 | 引用块 | 左侧 3px `--accent-base` 竖线 + 斜体 |
 | 链接 | `--accent-text`，hover 下划线 |
 
@@ -670,6 +731,21 @@ main { transition: opacity 200ms ease; }
 .chat-message {
   animation: message-in 250ms ease both;
 }
+
+/* 关闭动画（用户偏好减弱动效） */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .chat-message {
+    animation: none;
+  }
+  .sidebar-inner {
+    transition: none;
+  }
+}
 ```
 
 ## 实现约束
@@ -699,15 +775,29 @@ main { transition: opacity 200ms ease; }
 
 ### 状态优先级规则
 
+状态分为两类，**Page State**（页面级，互斥）和 **Operation State**（操作级，可与 Page State 共存）：
+
+#### Page State（互斥，仅显示优先级最高的）
+
 ```
-Processing > Error > Empty > Success > Loading
-（从高到低，仅显示优先级最高的状态）
+Error > Loading > Empty > Ready
+（从高到低）
 ```
 
-- **Processing**（生成中/分析中/同步中）：覆盖所有下级状态，禁用操作（但不隐藏 UI）
-- **Error**：保持当前内容可见，叠加 error banner
-- **Empty**：页面无数据时显示，隐藏列表
-- **Success**：操作完成后短暂显示（如 Toast 2s 后自动消失）
-- **Loading**：首次加载时显示，后续数据刷新不回到 Loading（使用背景刷新）
+- **Error**：覆盖所有下级状态。保持当前内容可见（如有），叠加 error banner。任何时候 Error 都是最高优先级
+- **Loading**：首次进入页面/切换路由时显示 Loading spinner。后续数据刷新不回到 Loading（使用背景刷新）
+- **Empty**：请求完成但无数据时显示空态。与 Loading 同时成立时 Loading 胜出（避免"暂无数据"闪烁）
+- **Ready**：正常内容展示，无特殊状态
 
-**状态切换动画**：状态切换时 200ms fade 过渡，避免闪跳。Processing → Success 可用更平滑的渐变。
+**状态切换动画**：
+- Loading → Empty：直接切换，无闪烁
+- Loading → Ready：淡入 200ms
+- Ready → Error：立即显示 error banner，内容保留
+- Error → Ready：淡入 200ms
+
+#### Operation State（可与 Page State 共存，无优先级覆盖关系）
+
+- **Processing**（生成中/分析中/同步中）：局部显示在触发操作的组件上（如按钮 spinner、消息流式动画）。Processing 中发生 Error → 立即切换 Error 显示
+- **Success**：操作成功后 Toast 2s 自动消失。不与任何状态冲突
+
+**规则**：Error 是唯一全局最高优先级状态。Processing 是局部状态，不覆盖 Error。
