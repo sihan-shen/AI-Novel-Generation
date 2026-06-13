@@ -10,9 +10,8 @@ import {
 } from "@/lib/queries/chapters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Trash2, Loader2, FileText } from "lucide-react";
+import { Plus, Trash2, Loader2, FileText, Sparkles } from "lucide-react";
 
 export default function WriterPage() {
   const { id: projectId } = useParams<{ id: string }>();
@@ -45,32 +44,34 @@ export default function WriterPage() {
 
   return (
     <div className="flex h-full">
-      {/* Sidebar */}
-      <aside className="w-56 shrink-0 border-r bg-zinc-50 dark:bg-zinc-950">
+      {/* Chapter sidebar */}
+      <aside
+        className="w-[var(--layout-writer-sidebar)] shrink-0 border-r flex flex-col"
+        style={{
+          background: "var(--surface-editor-sidebar)",
+          borderColor: "var(--border-subtle)",
+        }}
+      >
         <div className="p-3">
-          <h2 className="mb-2 text-sm font-semibold text-zinc-500">章节</h2>
+          <h2 className="mb-2 text-xs font-semibold tracking-wide" style={{ color: "var(--text-tertiary)" }}>
+            章节
+          </h2>
           <div className="flex gap-1">
             <Input
               placeholder="新章节..."
-              size={20}
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               className="h-7 text-xs"
             />
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 px-2"
-              onClick={handleCreate}
-            >
+            <Button size="sm" variant="ghost" className="h-7 px-2" onClick={handleCreate}>
               <Plus className="size-3" />
             </Button>
           </div>
         </div>
-        <ScrollArea className="h-[calc(100vh-5rem)]">
+        <ScrollArea className="flex-1">
           {isLoading ? (
             <div className="flex justify-center py-8">
-              <Loader2 className="size-5 animate-spin text-zinc-400" />
+              <Loader2 className="size-5 animate-spin" style={{ color: "var(--accent-base)" }} />
             </div>
           ) : (
             <div className="space-y-0.5 px-2">
@@ -78,22 +79,22 @@ export default function WriterPage() {
                 <button
                   key={c.id}
                   onClick={() => handleSelect(c)}
-                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors ${
-                    selectedId === c.id
-                      ? "bg-zinc-200 font-medium dark:bg-zinc-800"
-                      : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  }`}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors"
+                  style={{
+                    background: selectedId === c.id ? "var(--nav-item-active-bg)" : "transparent",
+                    color: selectedId === c.id ? "var(--nav-item-active-text)" : "var(--nav-item-text)",
+                  }}
                 >
-                  <FileText className="size-3.5 shrink-0 text-zinc-400" />
+                  <FileText className="size-3.5 shrink-0" style={{ color: "var(--text-muted)" }} />
                   <span className="flex-1 truncate">{c.title}</span>
                   <button
-                    className="rounded p-0.5 opacity-0 hover:bg-red-50 group-hover:opacity-100"
+                    className="rounded p-0.5 opacity-0 hover:bg-[var(--danger-subtle)]"
                     onClick={(e) => {
                       e.stopPropagation();
                       remove.mutate(c.id);
                     }}
                   >
-                    <Trash2 className="size-3 text-red-400" />
+                    <Trash2 className="size-3" style={{ color: "var(--danger-text)" }} />
                   </button>
                 </button>
               ))}
@@ -103,24 +104,76 @@ export default function WriterPage() {
       </aside>
 
       {/* Editor */}
-      <main className="flex-1 p-8">
+      <main
+        className="flex-1 flex flex-col"
+        style={{ background: "var(--surface-editor)" }}
+      >
         {selected ? (
-          <div className="mx-auto max-w-3xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h1 className="text-xl font-bold">{selected.title}</h1>
-              <Button size="sm" onClick={handleSave} disabled={update.isPending}>
-                {update.isPending ? "保存中..." : "保存"}
-              </Button>
+          <>
+            {/* Toolbar */}
+            <div
+              className="flex items-center justify-between px-6 py-3 border-b"
+              style={{ borderColor: "var(--border-subtle)" }}
+            >
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-0.5 h-5 rounded-full"
+                  style={{ background: "var(--accent-base)" }}
+                />
+                <span className="text-sm" style={{ color: "var(--text-tertiary)" }}>
+                  {selected.title}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="ghost" className="h-7">
+                  <Sparkles className="size-3.5 mr-1" />
+                  AI
+                </Button>
+                <Button size="sm" onClick={handleSave} disabled={update.isPending}>
+                  {update.isPending ? "保存中..." : "保存"}
+                </Button>
+              </div>
             </div>
-            <textarea
-              className="min-h-[60vh] w-full resize-y rounded-lg border p-4 font-mono text-sm leading-relaxed"
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              placeholder="章节内容..."
-            />
-          </div>
+
+            {/* Content area */}
+            <div className="flex-1 overflow-auto">
+              <div
+                className="mx-auto p-8"
+                style={{ maxWidth: "var(--layout-writer-max-width)" }}
+              >
+                <textarea
+                  className="w-full min-h-[60vh] resize-y rounded-lg p-4 text-sm leading-relaxed border-0 focus:ring-0"
+                  style={{
+                    background: "transparent",
+                    color: "var(--editor-text)",
+                    caretColor: "var(--editor-cursor)",
+                    fontFamily: "var(--font-mono)",
+                    lineHeight: "1.85",
+                  }}
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  placeholder="章节内容..."
+                />
+              </div>
+            </div>
+
+            {/* Status bar */}
+            <div
+              className="flex items-center justify-between px-6 py-2 border-t text-[0.7rem]"
+              style={{
+                borderColor: "var(--border-subtle)",
+                color: "var(--text-muted)",
+              }}
+            >
+              <span>字数: {editContent.length}</span>
+              <span>自动保存</span>
+            </div>
+          </>
         ) : (
-          <div className="flex h-full items-center justify-center text-zinc-400">
+          <div
+            className="flex h-full items-center justify-center"
+            style={{ color: "var(--text-muted)" }}
+          >
             {chapters?.length
               ? "从左侧选择一个章节开始编辑"
               : "新建一个章节开始写作"}
