@@ -43,6 +43,7 @@
 
 /* ────────────── Dark Mode: Base Tokens ────────────── */
 :root, .dark {
+  color-scheme: dark;
   --bg-base: #0b0b0e;
   --bg-base-secondary: #0e0e12;
   --bg-elevated: #141418;
@@ -105,6 +106,7 @@
 
 /* ────────────── Sepia Mode: Base Tokens ────────────── */
 .sepia {
+  color-scheme: light;
   --bg-base: #f2ede5;
   --bg-base-secondary: #ece6dc;
   --bg-elevated: #ffffffd4;
@@ -166,6 +168,27 @@
   --surface-editor: var(--editor-bg);
   --surface-editor-sidebar: var(--bg-base-secondary);
   --surface-code-border: var(--border-subtle);
+
+  /* shadcn bare-variable shims (for components referencing var(--*) directly) */
+  --background: var(--surface-page);
+  --foreground: var(--text-primary);
+  --card: var(--surface-card);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-dialog);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--accent-base);
+  --primary-foreground: #ffffff;
+  --secondary: var(--bg-elevated);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--bg-elevated-hover);
+  --muted-foreground: var(--text-tertiary);
+  --accent: var(--accent-base);
+  --accent-foreground: var(--accent-text);
+  --destructive: var(--danger-base);
+  --destructive-foreground: #ffffff;
+  --border: var(--border-default);
+  --input: var(--input-bg);
+  --ring: var(--focus-ring);
   --surface-code-header: var(--bg-elevated);
   --text-code: var(--text-secondary);
   --text-editor: var(--editor-text);
