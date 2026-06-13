@@ -70,3 +70,8 @@ class TestSettingsAPI:
         data = resp.json()["data"]
         assert len(data) == 1
         assert data[0]["name"] == "王五"
+
+    def test_get_not_found(self, client, db_session):
+        self._seed(db_session)
+        resp = client.get("/api/projects/p1/settings/nonexistent")
+        assert resp.status_code == 404

@@ -104,6 +104,7 @@ async def delete_setting(project_id: str, setting_id: str, request: Request, db:
 
 
 from app.schemas.response import APIResponse
+from fastapi import HTTPException
 from pydantic import BaseModel
 from datetime import datetime
 
