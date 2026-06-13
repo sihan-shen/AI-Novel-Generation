@@ -99,6 +99,8 @@
   --z-tooltip: 70;
   --z-toast: 80;
   --z-chat-input: 30;
+
+  --surface-code: #0c0c10;
 }
 
 /* ────────────── Sepia Mode: Base Tokens ────────────── */
@@ -146,6 +148,7 @@
   --processing-text: #6d28d9;   --processing-border: rgba(124,58,237,0.20);
 
   --focus-ring: rgba(124,58,237,0.45);
+  --gradient-accent: linear-gradient(135deg, #7c3aed, #a855f7);
   --surface-code: #f0ece4;
 }
 
@@ -162,7 +165,6 @@
   --surface-disabled: var(--bg-elevated-hover);
   --surface-editor: var(--editor-bg);
   --surface-editor-sidebar: var(--bg-base-secondary);
-  --surface-code: #0c0c10;
   --surface-code-border: var(--border-subtle);
   --surface-code-header: var(--bg-elevated);
   --text-code: var(--text-secondary);
