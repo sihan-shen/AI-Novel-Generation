@@ -5,6 +5,7 @@ import { useProjects, useCreateProject, useDeleteProject } from "@/lib/queries/p
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,28 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Trash2, Loader2 } from "lucide-react";
 import { useState } from "react";
+
+const TAG_COLORS = [
+  { bg: "var(--accent-subtle)", text: "var(--accent-text)" },
+  { bg: "var(--info-subtle)", text: "var(--info-text)" },
+  { bg: "var(--success-subtle)", text: "var(--success-text)" },
+  { bg: "var(--warning-subtle)", text: "var(--warning-text)" },
+  { bg: "var(--danger-subtle)", text: "var(--danger-text)" },
+  { bg: "var(--processing-subtle)", text: "var(--processing-text)" },
+];
+
+const STATUS_BADGE: Record<string, "default" | "processing" | "success"> = {
+  draft: "default",
+  writing: "processing",
+  completed: "success",
+};
+
+function colorForTag(tag: string) {
+  const i = tag
+    .split("")
+    .reduce((acc, c) => acc + c.charCodeAt(0), 0) % TAG_COLORS.length;
+  return TAG_COLORS[i];
+}
 
 export default function ProjectsPage() {
   const { data: projects, isLoading } = useProjects();
@@ -34,20 +57,43 @@ export default function ProjectsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-16">
-        <Loader2 className="size-6 animate-spin text-zinc-400" />
+        <Loader2 className="size-6 animate-spin" style={{ color: "var(--accent-base)" }} />
       </div>
     );
   }
 
   return (
     <div className="p-8">
-      <div className="flex items-center justify-between">
+      {/* Page header */}
+      <div className="mb-8 flex items-end justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">项目</h1>
-          <p className="mt-1 text-sm text-zinc-500">管理你的小说项目</p>
+          <span
+            className="inline-block rounded-full px-2.5 py-0.5 text-[0.7rem] font-medium tracking-wide"
+            style={{
+              background: "var(--accent-subtle)",
+              color: "var(--accent-text)",
+            }}
+          >
+            项目
+          </span>
+          <h1
+            className="mt-2 text-2xl font-bold tracking-tight"
+            style={{ color: "var(--text-primary)" }}
+          >
+            项目
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-tertiary)" }}>
+            管理你的小说项目
+          </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger className="inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-200">
+          <DialogTrigger
+            className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+            style={{
+              background: "var(--button-primary-bg)",
+              color: "var(--button-primary-text)",
+            }}
+          >
             <Plus className="size-4" />
             新建项目
           </DialogTrigger>
@@ -80,36 +126,50 @@ export default function ProjectsPage() {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {projects?.map((p) => (
-          <Card key={p.id} className="group relative">
+          <Card key={p.id} className="group relative" surface="solid">
             <Link href={`/projects/${p.id}`}>
               <CardHeader>
                 <CardTitle className="text-lg">{p.title}</CardTitle>
                 {p.genre && (
-                  <span className="text-xs text-zinc-500">{p.genre}</span>
+                  <span
+                    className="inline-block rounded px-1.5 py-0.5 text-xs font-medium"
+                    style={{
+                      background: colorForTag(p.genre).bg,
+                      color: colorForTag(p.genre).text,
+                    }}
+                  >
+                    {p.genre}
+                  </span>
                 )}
               </CardHeader>
               <CardContent>
-                <p className="line-clamp-2 text-sm text-zinc-500">
+                <p className="line-clamp-2 text-sm" style={{ color: "var(--text-tertiary)" }}>
                   {p.description || "暂无简介"}
                 </p>
-                <span className="mt-2 inline-block rounded bg-zinc-100 px-2 py-0.5 text-xs dark:bg-zinc-800">
+                <Badge
+                  className="mt-2"
+                  variant={STATUS_BADGE[p.status as keyof typeof STATUS_BADGE] || "default"}
+                >
                   {p.status || "草稿"}
-                </span>
+                </Badge>
               </CardContent>
             </Link>
             <button
-              className="absolute right-3 top-3 rounded p-1 opacity-0 transition-opacity hover:bg-red-50 group-hover:opacity-100"
+              className="absolute right-3 top-3 rounded p-1 opacity-0 transition-opacity hover:bg-[var(--danger-subtle)] group-hover:opacity-100"
+              style={{ color: "var(--danger-text)" }}
               onClick={() => remove.mutate(p.id)}
               aria-label="删除项目"
             >
-              <Trash2 className="size-4 text-red-500" />
+              <Trash2 className="size-4" />
             </button>
           </Card>
         ))}
       </div>
 
       {projects?.length === 0 && (
-        <p className="mt-16 text-center text-zinc-400">还没有项目，创建一个吧。</p>
+        <p className="mt-16 text-center" style={{ color: "var(--text-muted)" }}>
+          还没有项目，创建一个吧。
+        </p>
       )}
     </div>
   );

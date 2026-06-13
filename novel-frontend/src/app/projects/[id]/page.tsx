@@ -3,9 +3,16 @@
 import { useParams, useRouter } from "next/navigation";
 import { useProject } from "@/lib/queries/projects";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+
+const STATUS_BADGE: Record<string, "default" | "processing" | "success"> = {
+  draft: "default",
+  writing: "processing",
+  completed: "success",
+};
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -15,7 +22,7 @@ export default function ProjectDetailPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-16">
-        <Loader2 className="size-6 animate-spin text-zinc-400" />
+        <Loader2 className="size-6 animate-spin" style={{ color: "var(--accent-base)" }} />
       </div>
     );
   }
@@ -23,7 +30,7 @@ export default function ProjectDetailPage() {
   if (!project) {
     return (
       <div className="p-8">
-        <p className="text-zinc-500">项目未找到</p>
+        <p style={{ color: "var(--text-tertiary)" }}>项目未找到</p>
         <Link href="/projects" className="mt-2 inline-block text-sm underline">
           返回项目列表
         </Link>
@@ -38,22 +45,22 @@ export default function ProjectDetailPage() {
         返回
       </Button>
 
-      <Card>
+      <Card surface="solid">
         <CardHeader>
           <CardTitle className="text-2xl">{project.title}</CardTitle>
           {project.genre && (
-            <span className="text-sm text-zinc-500">{project.genre}</span>
+            <span className="text-sm" style={{ color: "var(--text-tertiary)" }}>{project.genre}</span>
           )}
         </CardHeader>
         <CardContent>
-          <p className="text-zinc-600 dark:text-zinc-400">
+          <p style={{ color: "var(--text-secondary)" }}>
             {project.description || "暂无简介"}
           </p>
           <div className="mt-6 flex gap-3">
-            <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs dark:bg-zinc-800">
+            <Badge variant={STATUS_BADGE[project.status as keyof typeof STATUS_BADGE] || "default"}>
               {project.status || "草稿"}
-            </span>
-            <span className="text-xs text-zinc-400">
+            </Badge>
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
               创建于 {new Date(project.created_at).toLocaleDateString("zh-CN")}
             </span>
           </div>
@@ -74,10 +81,10 @@ export default function ProjectDetailPage() {
 function SubPageCard({ title, desc, href }: { title: string; desc: string; href: string }) {
   return (
     <Link href={href}>
-      <Card className="transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900">
+      <Card surface="solid" className="transition-colors hover:bg-[var(--bg-elevated-hover)]">
         <CardHeader>
           <CardTitle className="text-base">{title}</CardTitle>
-          <p className="text-sm text-zinc-500">{desc}</p>
+          <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>{desc}</p>
         </CardHeader>
       </Card>
     </Link>
