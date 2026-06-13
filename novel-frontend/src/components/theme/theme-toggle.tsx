@@ -17,9 +17,23 @@ const THEME_OPTIONS = [
 ];
 
 export function ThemeToggle({ collapsed = false }: { collapsed?: boolean }) {
-  const { theme, setTheme, resolved } = useThemeStore();
+  const theme = useThemeStore((s) => s.theme);
+  const resolved = useThemeStore((s) => s.resolved);
+  const setTheme = useThemeStore((s) => s.setTheme);
 
-  const CurrentIcon = THEME_OPTIONS.find((o) => o.value === resolved)?.icon ?? Moon;
+  const currentOption = THEME_OPTIONS.find((o) => o.value === resolved);
+  const CurrentIcon = currentOption?.icon ?? Moon;
+
+  const items = THEME_OPTIONS.map((opt) => (
+    <DropdownMenuItem
+      key={opt.value}
+      onClick={() => setTheme(opt.value)}
+      className={theme === opt.value ? "text-accent-foreground" : ""}
+    >
+      <opt.icon className="mr-2 size-4" />
+      {opt.label}
+    </DropdownMenuItem>
+  ));
 
   if (collapsed) {
     return (
@@ -30,16 +44,7 @@ export function ThemeToggle({ collapsed = false }: { collapsed?: boolean }) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" side="right">
-          {THEME_OPTIONS.map((opt) => (
-            <DropdownMenuItem
-              key={opt.value}
-              onClick={() => setTheme(opt.value)}
-              className={theme === opt.value ? "text-[var(--accent-text)]" : ""}
-            >
-              <opt.icon className="mr-2 size-4" />
-              {opt.label}
-            </DropdownMenuItem>
-          ))}
+          {items}
         </DropdownMenuContent>
       </DropdownMenu>
     );
@@ -54,20 +59,11 @@ export function ThemeToggle({ collapsed = false }: { collapsed?: boolean }) {
           className="w-full justify-start gap-2"
         >
           <CurrentIcon className="size-4" />
-          <span className="text-sm">{THEME_OPTIONS.find((o) => o.value === resolved)?.label}</span>
+          <span className="text-sm">{currentOption?.label}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {THEME_OPTIONS.map((opt) => (
-          <DropdownMenuItem
-            key={opt.value}
-            onClick={() => setTheme(opt.value)}
-            className={theme === opt.value ? "text-[var(--accent-text)]" : ""}
-          >
-            <opt.icon className="mr-2 size-4" />
-            {opt.label}
-          </DropdownMenuItem>
-        ))}
+        {items}
       </DropdownMenuContent>
     </DropdownMenu>
   );
