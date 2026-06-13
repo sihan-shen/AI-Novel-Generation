@@ -44,6 +44,8 @@ from app.routers.styles import api_router as styles_api
 app.include_router(styles_api)
 app.include_router(reviews.router)
 app.include_router(ideas.router)
+from app.routers.ideas import api_router as ideas_api
+app.include_router(ideas_api)
 app.include_router(config.router)
 app.include_router(outline_gen.router)
 app.include_router(search.router)
@@ -65,10 +67,11 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 def on_startup():
     os.makedirs(BASE_DIR.parent / "data", exist_ok=True)
     init_db()
-    from app.migrations import m001_token_usage_to_ai_call, m002_add_agent_task_columns
+    from app.migrations import m001_token_usage_to_ai_call, m002_add_agent_task_columns, m003_add_idea_updated_at
     from app.database import engine
     m001_token_usage_to_ai_call.run(engine)
     m002_add_agent_task_columns.run(engine)
+    m003_add_idea_updated_at.run(engine)
     _recover_agent_tasks()
 
 

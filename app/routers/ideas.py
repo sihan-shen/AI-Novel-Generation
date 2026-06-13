@@ -56,3 +56,59 @@ async def delete_idea(idea_id: str, request: Request, db: Session = Depends(get_
     IdeaService.delete(db, idea_id)
     ideas = IdeaService.list_by_project(db)
     return templates.TemplateResponse(request, "ideas/_list.html", {"ideas": ideas})
+
+
+# ---- JSON API endpoints ----
+
+from app.schemas.response import APIResponse
+from pydantic import BaseModel
+from datetime import datetime
+
+
+class IdeaResponse(BaseModel):
+    id: str
+    project_id: str | None
+    title: str
+    content: str
+    source: str
+    sort_order: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class IdeaCreate(BaseModel):
+    project_id: str | None = None
+    title: str = ""
+    content: str = ""
+    source: str = "手写"
+
+
+api_router = APIRouter(prefix="/api/ideas", tags=["ideas"])
+
+
+@api_router.get("", response_model=APIResponse[list[IdeaResponse]])
+async def api_list_ideas(project_id: str | None = None, db: Session = Depends(get_db)):
+    ideas = IdeaService.list_by_project(db, project_id)
+    return APIResponse(data=ideas)
+
+
+@api_router.post("", response_model=APIResponse[IdeaResponse], status_code=201)
+async def api_create_idea(body: IdeaCreate, db: Session = Depends(get_db)):
+    idea = IdeaService.create(db, project_id=body.project_id, title=body.title,
+                              content=body.content, source=body.source)
+    return APIResponse(data=idea)
+
+
+@api_router.delete("/{idea_id}", response_model=APIResponse[dict])
+async def api_delete_idea(idea_id: str, db: Session = Depends(get_db)):
+    IdeaService.delete(db, idea_id)
+    return APIResponse(data={"deleted": idea_id})
+
+
+@api_router.post("/reorder", response_model=APIResponse[dict])
+async def api_reorder_ideas(body: dict, db: Session = Depends(get_db)):
+    IdeaService.reorder(db, body["items"])
+    return APIResponse(data={"ok": True})

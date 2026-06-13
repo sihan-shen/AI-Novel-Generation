@@ -18,3 +18,4 @@ class Idea(Base):
     promoted_to_id = Column(String, nullable=True)
     sort_order = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
