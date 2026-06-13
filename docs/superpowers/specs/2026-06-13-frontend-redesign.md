@@ -198,22 +198,61 @@
 
 /* 分隔线 */
 --separator: var(--border-subtle);
+
+/* 遮罩覆盖层 */
+--overlay-backdrop: rgba(0,0,0,0.50);
+--overlay-backdrop-sepia: rgba(0,0,0,0.15);
+
+/* 文本选中 */
+--selection-bg: rgba(124,58,237,0.30);
+--selection-text: currentColor;
+
+/* 禁用态表面 */
+--surface-disabled: var(--bg-elevated-hover);
+
+/* 编辑器（Writer） */
+--surface-editor: var(--editor-bg);
+--text-editor: var(--editor-text);
+--cursor-editor: var(--editor-cursor);
+--surface-editor-sidebar: var(--bg-base-secondary);
+
+/* 滚动条 */
+--scrollbar-track: transparent;
+--scrollbar-thumb: rgba(255,255,255,0.08);
+--scrollbar-thumb-hover: rgba(255,255,255,0.15);
+--scrollbar-thumb-sepia: rgba(0,0,0,0.10);
+--scrollbar-thumb-sepia-hover: rgba(0,0,0,0.20);
+
+/* 代码块 */
+--code-block-bg: #0c0c10;
+--code-block-bg-sepia: #f0ece4;
+--code-block-border: var(--border-subtle);
 ```
 
 ### 3. Focus / Accessibility 体系
 
 ```css
-/* 全局 focus-visible 环 — 统一所有组件 */
+/* 全局 focus-visible 环 — 统一所有可交互元素 */
 --focus-ring: rgba(124,58,237,0.45);
 
-/* 应用方式（全局一次性定义，无需每组件写） */
-*:focus-visible {
+/* 应用方式：仅覆盖可交互元素，避免内部结构节点被意外环包围 */
+input:focus-visible,
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
 /* 鼠标点击时不显示 focus ring */
-*:focus:not(:focus-visible) {
+input:focus:not(:focus-visible),
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible),
+select:focus:not(:focus-visible),
+textarea:focus:not(:focus-visible),
+[tabindex]:focus:not(:focus-visible) {
   outline: none;
   box-shadow: none;
 }
@@ -304,7 +343,7 @@
 |------|------|------|
 | 默认 | `--badge-default-bg` | `--badge-default-text` |
 | 成功 | `--badge-success-bg` | `--badge-success-text` |
-| 警告 | `--badge-success-bg` | `--badge-warning-text` |
+| 警告 | `--badge-warning-bg` | `--badge-warning-text` |
 | 错误 | `--badge-danger-bg` | `--badge-danger-text` |
 | 处理中 | `--badge-processing-bg` | `--badge-processing-text` |
 
@@ -317,7 +356,7 @@
 - 边框：`var(--border-subtle)`
 - 阴影：`var(--shadow-dialog)`
 - 圆角：`var(--radius-xl)`
-- 遮罩：`rgba(0,0,0,0.5)`（dark 模式），`rgba(0,0,0,0.15)`（sepia 模式）
+- 遮罩：`var(--overlay-backdrop)`（dark）/ `var(--overlay-backdrop-sepia)`（sepia）（见语义 Token 中的 `--overlay-backdrop` 系列）
 
 #### Dropdown / Select
 
@@ -331,7 +370,52 @@
 - 颜色：`var(--separator)`
 - 高度：`1px`
 
-### 8. 标签颜色算法
+### 8. Z-index 层级体系
+
+```css
+--z-sidebar: 40;
+--z-drawer: 45;
+--z-dialog: 50;
+--z-popover: 60;
+--z-dropdown: 60;
+--z-tooltip: 70;
+--z-toast: 80;
+--z-chat-input: 30;   /* Chat 底部输入栏固定层 */
+```
+
+所有浮动层组件必须引用此体系，禁止随意使用 `z-10` / `z-50` 等魔数。
+
+### 9. 滚动条规范
+
+```css
+/* Dark */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* Sepia — 覆盖 thumb */
+.sepia ::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb-sepia);
+}
+.sepia ::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-sepia-hover);
+}
+```
+
+组件滚动区域统一使用此样式，不单独定义。
+
+### 10. 标签颜色算法
 
 项目类型不硬编码映射。改为**标签颜色池 + 哈希分配**：
 
@@ -380,12 +464,22 @@ function colorForTag(tag: string, mode: 'dark' | 'sepia') {
 .sepia { /* ... sepia 色板 ... */ }
 /* 语义 Token 引用基础 Token（见前文），放在各自选择器内 */
 
-/* focus-visible 全局 */
-*:focus-visible {
+/* focus-visible 全局 — 仅覆盖可交互元素 */
+input:focus-visible,
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--focus-ring);
 }
-*:focus:not(:focus-visible) {
+input:focus:not(:focus-visible),
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible),
+select:focus:not(:focus-visible),
+textarea:focus:not(:focus-visible),
+[tabindex]:focus:not(:focus-visible) {
   outline: none;
   box-shadow: none;
 }
@@ -454,7 +548,7 @@ Content 区域使用 grid/flex 而非 margin-left 驱动
 | **Mobile** | <768px | Drawer (overlay) | 1 列 | 隐藏章节栏，底部按钮切换 | 消息全宽，输入框固定底部 | Drawer 代替侧边栏 |
 
 **Dashboard 网格：** `grid-template-columns: repeat(3,1fr)` → `repeat(2,1fr)` → `1fr`
-**Mobile Drawer：** 宽 280px，`transform: translateX(-100%) → translateX(0)`，带遮罩 `rgba(0,0,0,0.5)`
+**Mobile Drawer：** 宽 280px，`transform: translateX(-100%) → translateX(0)`，带遮罩 `var(--overlay-backdrop)`
 
 ### 4. 工作台 (Dashboard)
 
@@ -465,7 +559,9 @@ Content 区域使用 grid/flex 而非 margin-left 驱动
 
 ### 5. 写作编辑器 (Writer)
 
-- **背景**: `var(--editor-bg)`（`#111114` dark / `#ffffffd0` sepia）
+- **背景**: `var(--surface-editor)`（`--editor-bg` = `#111114` dark / `#ffffffd0` sepia）
+- **文字**: `var(--text-editor)`，光标 `var(--cursor-editor)`
+- **章节侧边栏**: `var(--surface-editor-sidebar)`
 - **内容区**: 居中 `max-width: 46rem`，padding 2rem 3rem
 - **顶栏**: 左侧章节栏按钮 | 章节名 · 字数 | 搜索/AI/主题切换
 - **章节结构**: 紫色竖线(2px) + 卷/部标签
@@ -499,9 +595,12 @@ Content 区域使用 grid/flex 而非 margin-left 驱动
 
 #### 长消息折叠
 
-- 触发条件：消息正文**超过 40 行**（基于 `\n` 计数，不受图片/代码影响）
-- 折叠态：显示前 15 行 + "展开全部 (N 行)" 链接
-- 代码块始终完整显示（不参与行数计数）
+- **触发条件**：由渲染后的行数或预估字符数共同决定，不受原始 `\n` 计数限制
+  - Markdown 渲染后段落、列表、引用块都可能增加实际行数
+  - 中英文混排时每行视觉宽度不一致，`\n` 计数不可靠
+  - **建议实现**：渲染 DOM 后检查容器 `scrollHeight > clientHeight`，或根据原始文本长度估算（如 >2000 字符时触发折叠）
+- **折叠态**：显示前约 15 行内容 + "展开全部 (N 行)" 链接
+- **代码块始终完整显示**（不参与折叠判断）
 
 #### Markdown 渲染
 
@@ -512,7 +611,7 @@ Content 区域使用 grid/flex 而非 margin-left 驱动
 | 粗体/斜体 | 标准 markdown |
 | 列表 | 缩进 + 间距 0.35rem |
 | 行内代码 | `--bg-elevated` 背景，`--accent-text` 文字，`--radius-sm` |
-| 代码块 | 深色画布 `#0b0b0e`，等宽字体，顶栏含语言标签+复制按钮 |
+| 代码块 | `var(--code-block-bg)`（dark）/ `var(--code-block-bg-sepia)`（sepia），等宽字体，顶栏含语言标签+复制按钮，边框 `var(--code-block-border)` |
 | 引用块 | 左侧 3px `--accent-base` 竖线 + 斜体 |
 | 链接 | `--accent-text`，hover 下划线 |
 
@@ -579,5 +678,36 @@ main { transition: opacity 200ms ease; }
 - 所有颜色引用使用 `var(--token)` 形式，不依赖 `theme()` 函数
 - 主题切换通过 `data-theme` + CSS 变量覆盖，不依赖 Tailwind `dark:` 变体
 - 所有页面覆盖 Loading / Empty / Error / Success / Processing 五种状态
-- 键盘可访问性: 所有交互元素必须有可见的 `focus-visible` 环（已有全局定义）
-- 侧边栏折叠动画避免 `width` transition，优先使用 `transform`
+
+### TailwindCSS v4 使用约定
+
+```tsx
+// ✅ 正确：组件样式引用语义 Token
+<button className="bg-[var(--button-primary-bg)] text-[var(--button-primary-text)]" />
+
+// ✅ 正确：需要 Tailwind utility 时，使用 @theme 映射的 --color-*
+<button className="bg-accent text-white" />
+
+// ❌ 禁止：直接使用 Tailwind 内置色值（破坏主题切换）
+<button className="bg-zinc-900 text-white" />
+
+// ❌ 禁止：混用 var() 和 Tailwind 色值
+<button className="bg-[var(--button-primary-bg)] text-zinc-100" />
+```
+
+**规则**：组件样式引用 `var(--semantic-token)`；只有需要 Tailwind utility（如 `hover:`、`dark:`、`focus-visible:` 变体）时才使用 `@theme inline` 映射的 `--color-*`。
+
+### 状态优先级规则
+
+```
+Processing > Error > Empty > Success > Loading
+（从高到低，仅显示优先级最高的状态）
+```
+
+- **Processing**（生成中/分析中/同步中）：覆盖所有下级状态，禁用操作（但不隐藏 UI）
+- **Error**：保持当前内容可见，叠加 error banner
+- **Empty**：页面无数据时显示，隐藏列表
+- **Success**：操作完成后短暂显示（如 Toast 2s 后自动消失）
+- **Loading**：首次加载时显示，后续数据刷新不回到 Loading（使用背景刷新）
+
+**状态切换动画**：状态切换时 200ms fade 过渡，避免闪跳。Processing → Success 可用更平滑的渐变。
