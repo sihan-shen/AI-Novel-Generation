@@ -1,11 +1,186 @@
 "use client";
 
 import { useCallback, useRef } from "react";
-import { useAgentStore, type ChatRequest } from "@/stores/agent";
+import {
+  useAgentStore,
+  type ChatRequest,
+  type AgentMessage,
+  type ToolCallEvent,
+  type ReasoningEvent,
+  type SuggestionEvent,
+} from "@/stores/agent";
 
 interface SSEEvent {
   event: string;
   data: Record<string, unknown>;
+}
+
+/** Subset of AgentStore actions needed by SSE event handlers. */
+export interface AgentStoreActions {
+  appendMessage: (msg: AgentMessage) => void;
+  appendToolCall: (tc: ToolCallEvent) => void;
+  updateToolCallStatus: (id: string, status: ToolCallEvent["status"], result?: string) => void;
+  appendReasoning: (r: ReasoningEvent) => void;
+  appendSuggestion: (s: SuggestionEvent) => void;
+  setOrchestratorState: (state: string | null) => void;
+  setProgress: (p: string | null) => void;
+  setTaskId: (id: string | null) => void;
+  updateLastAssistantMessage: (chunk: string) => void;
+  setHandoffSummary: (summary: string | null) => void;
+}
+
+export type EventHandler = (data: Record<string, unknown>, store: AgentStoreActions) => void;
+
+// ── Handler implementations ───────────────────────────────────────
+
+const handleAgentStart: EventHandler = (data, store) => {
+  const tid = typeof data.task_id === "string" ? data.task_id : null;
+  store.setTaskId(tid);
+  const state = typeof data.state === "string" ? data.state : "IDLE";
+  store.setOrchestratorState(state);
+};
+
+const handleTextDelta: EventHandler = (data, store) => {
+  const text =
+    typeof data.content === "string"
+      ? data.content
+      : typeof data.text === "string"
+        ? data.text
+        : "";
+  if (text) {
+    store.updateLastAssistantMessage(text);
+  }
+};
+
+const handleAgentOutput: EventHandler = (data, store) => {
+  const text = extractContent(data);
+  store.appendMessage({
+    id: crypto.randomUUID(),
+    role: "assistant",
+    content: text,
+    sequence: typeof data.sequence === "number" ? data.sequence : Date.now(),
+  });
+  const summary = typeof data.summary === "string" ? data.summary : text;
+  store.setHandoffSummary(summary);
+};
+
+const handleToolCall: EventHandler = (data, store) => {
+  const tcId =
+    typeof data.tool_call_id === "string"
+      ? data.tool_call_id
+      : crypto.randomUUID();
+  store.appendToolCall({
+    id: tcId,
+    tool: typeof data.tool === "string" ? data.tool : "unknown",
+    args:
+      typeof data.args === "object" && data.args !== null
+        ? (data.args as Record<string, unknown>)
+        : {},
+    status: "running",
+    sequence: typeof data.sequence === "number" ? data.sequence : Date.now(),
+  });
+};
+
+const handleToolResult: EventHandler = (data, store) => {
+  const tcId =
+    typeof data.tool_call_id === "string" ? data.tool_call_id : "";
+  const success = data.success === true;
+  const resultText = extractContent(data);
+  if (tcId) {
+    store.updateToolCallStatus(
+      tcId,
+      success ? "success" : "failed",
+      resultText,
+    );
+  }
+};
+
+const handleOrchestratorThought: EventHandler = (data, store) => {
+  const text =
+    typeof data.text === "string" ? data.text : extractContent(data);
+  store.appendReasoning({
+    id: crypto.randomUUID(),
+    label: typeof data.label === "string" ? data.label : "思考",
+    content: text,
+    sequence: typeof data.sequence === "number" ? data.sequence : Date.now(),
+  });
+};
+
+const handleSuggestion: EventHandler = (data, store) => {
+  store.appendSuggestion({
+    id:
+      typeof data.confirm_id === "string"
+        ? data.confirm_id
+        : typeof data.id === "string"
+          ? data.id
+          : crypto.randomUUID(),
+    type: "confirm_request" as const,
+    tool: typeof data.tool === "string" ? data.tool : undefined,
+    args:
+      typeof data.args === "object" && data.args !== null
+        ? (data.args as Record<string, unknown>)
+        : undefined,
+    summary:
+      typeof data.summary === "string"
+        ? data.summary
+        : typeof data.description === "string"
+          ? data.description
+          : undefined,
+    sequence: typeof data.sequence === "number" ? data.sequence : Date.now(),
+  });
+};
+
+const handleProgress: EventHandler = (data, store) => {
+  const msg =
+    typeof data.message === "string"
+      ? data.message
+      : typeof data.progress === "string"
+        ? data.progress
+        : null;
+  store.setProgress(msg);
+};
+
+const handleDone: EventHandler = (_data, store) => {
+  store.setOrchestratorState("DONE");
+  store.setProgress(null);
+};
+
+const handleCancelled: EventHandler = (_data, store) => {
+  store.setOrchestratorState("CANCELLED");
+  store.setProgress(null);
+};
+
+// ── Handler registry ──────────────────────────────────────────────
+
+export const eventHandlers: Record<string, EventHandler> = {
+  agent_start: handleAgentStart,
+  text_delta: handleTextDelta,
+  agent_output: handleAgentOutput,
+  brainstorm_response: handleAgentOutput,
+  brainstorm_end: handleAgentOutput,
+  brainstorm_handoff: handleAgentOutput,
+  tool_call: handleToolCall,
+  tool_result: handleToolResult,
+  orchestrator_thought: handleOrchestratorThought,
+  confirm_request: handleSuggestion,
+  pending_suggestion: handleSuggestion,
+  progress: handleProgress,
+  task_complete: handleDone,
+  done: handleDone,
+  cancelled: handleCancelled,
+};
+
+/** Process a single SSE event against the store. */
+export function handleSSEEvent(
+  event: SSEEvent,
+  store: AgentStoreActions,
+): void {
+  const handler = eventHandlers[event.event];
+  if (handler) {
+    handler(event.data, store);
+  } else if (process.env.NODE_ENV === "development") {
+    console.log("[SSE] unhandled event:", event.event, event.data);
+  }
 }
 
 /**
@@ -43,6 +218,19 @@ export function useAgentSSE() {
         content: request.message,
         sequence: Date.now(),
       });
+
+      const storeActions: AgentStoreActions = {
+        appendMessage,
+        appendToolCall,
+        updateToolCallStatus,
+        appendReasoning,
+        appendSuggestion,
+        setOrchestratorState,
+        setProgress,
+        setTaskId,
+        updateLastAssistantMessage,
+        setHandoffSummary,
+      };
 
       try {
         const res = await fetch(
@@ -85,7 +273,7 @@ export function useAgentSSE() {
             if (!chunk.trim()) continue;
             const sseEvent = parseSSEChunk(chunk);
             if (!sseEvent) continue;
-            handleEvent(sseEvent);
+            handleSSEEvent(sseEvent, storeActions);
           }
         }
 
@@ -93,7 +281,7 @@ export function useAgentSSE() {
         if (buffer.trim()) {
           const sseEvent = parseSSEChunk(buffer);
           if (sseEvent) {
-            handleEvent(sseEvent);
+            handleSSEEvent(sseEvent, storeActions);
           }
         }
       } catch (err) {
@@ -117,158 +305,6 @@ export function useAgentSSE() {
         abortControllerRef.current = null;
       }
 
-      function handleEvent({ event, data }: SSEEvent) {
-        switch (event) {
-          case "agent_start": {
-            const tid = typeof data.task_id === "string" ? data.task_id : null;
-            setTaskId(tid);
-            const state =
-              typeof data.state === "string" ? data.state : "IDLE";
-            setOrchestratorState(state);
-            break;
-          }
-
-          case "text_delta": {
-            const text =
-              typeof data.content === "string"
-                ? data.content
-                : typeof data.text === "string"
-                  ? data.text
-                  : "";
-            if (text) {
-              updateLastAssistantMessage(text);
-            }
-            break;
-          }
-
-          case "agent_output":
-          case "brainstorm_response":
-          case "brainstorm_end":
-          case "brainstorm_handoff": {
-            const text = extractContent(data);
-            appendMessage({
-              id: crypto.randomUUID(),
-              role: "assistant",
-              content: text,
-              sequence: typeof data.sequence === "number" ? data.sequence : Date.now(),
-            });
-            const summary =
-              typeof data.summary === "string"
-                ? data.summary
-                : text;
-            setHandoffSummary(summary);
-            break;
-          }
-
-          case "tool_call": {
-            const tcId =
-              typeof data.tool_call_id === "string"
-                ? data.tool_call_id
-                : crypto.randomUUID();
-            appendToolCall({
-              id: tcId,
-              tool: typeof data.tool === "string" ? data.tool : "unknown",
-              args:
-                typeof data.args === "object" && data.args !== null
-                  ? (data.args as Record<string, unknown>)
-                  : {},
-              status: "running",
-              sequence: typeof data.sequence === "number" ? data.sequence : Date.now(),
-            });
-            break;
-          }
-
-          case "tool_result": {
-            const tcId =
-              typeof data.tool_call_id === "string"
-                ? data.tool_call_id
-                : "";
-            const success = data.success === true;
-            const resultText = extractContent(data);
-            if (tcId) {
-              updateToolCallStatus(
-                tcId,
-                success ? "success" : "failed",
-                resultText,
-              );
-            }
-            break;
-          }
-
-          case "orchestrator_thought": {
-            const text =
-              typeof data.text === "string"
-                ? data.text
-                : extractContent(data);
-            appendReasoning({
-              id: crypto.randomUUID(),
-              label: typeof data.label === "string" ? data.label : "思考",
-              content: text,
-              sequence: typeof data.sequence === "number" ? data.sequence : Date.now(),
-            });
-            break;
-          }
-
-          case "confirm_request":
-          case "pending_suggestion": {
-            appendSuggestion({
-              id:
-                typeof data.confirm_id === "string"
-                  ? data.confirm_id
-                  : typeof data.id === "string"
-                    ? data.id
-                    : crypto.randomUUID(),
-              type: event as "confirm_request" | "pending_suggestion",
-              tool: typeof data.tool === "string" ? data.tool : undefined,
-              args:
-                typeof data.args === "object" && data.args !== null
-                  ? (data.args as Record<string, unknown>)
-                  : undefined,
-              summary:
-                typeof data.summary === "string"
-                  ? data.summary
-                  : typeof data.description === "string"
-                    ? data.description
-                    : undefined,
-              sequence: typeof data.sequence === "number" ? data.sequence : Date.now(),
-            });
-            break;
-          }
-
-          case "progress": {
-            const msg =
-              typeof data.message === "string"
-                ? data.message
-                : typeof data.progress === "string"
-                  ? data.progress
-                  : null;
-            setProgress(msg);
-            break;
-          }
-
-          case "task_complete":
-          case "done": {
-            setOrchestratorState("DONE");
-            setProgress(null);
-            break;
-          }
-
-          case "cancelled": {
-            setOrchestratorState("CANCELLED");
-            setProgress(null);
-            break;
-          }
-
-          case "checkpoint":
-          default: {
-            // Ignore checkpoints and unknown events (or log them)
-            if (process.env.NODE_ENV === "development") {
-              console.log("[SSE] unhandled event:", event, data);
-            }
-            break;
-          }
-        }
-      }
     },
     [
       appendMessage,
