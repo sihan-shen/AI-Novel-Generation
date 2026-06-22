@@ -1,6 +1,8 @@
 import uuid
-from datetime import datetime
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey
+from datetime import UTC, datetime
+
+from sqlalchemy import Column, DateTime, ForeignKey, String, Text
+
 from app.database import Base
 
 
@@ -16,5 +18,5 @@ class Review(Base):
     status = Column(String, default="pending")
     triggered_by_type = Column(String, nullable=True)
     triggered_by_task_id = Column(String, ForeignKey("agent_tasks.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))  # noqa: E501

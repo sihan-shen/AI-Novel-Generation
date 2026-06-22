@@ -1,12 +1,17 @@
 """Writer Agent configuration."""
 
-from app.agents.base import AgentConfig, Tool
-from app.agents.tools.writing import (
-    lookup_settings, get_outline_context, get_recent_chapters,
-    get_style_guide, write_chapter, update_outline_status,
-)
-from app.agents.tools.shared import search_any
 from pathlib import Path
+
+from app.agents.base import AgentConfig, Tool
+from app.agents.tools.shared import search_any
+from app.agents.tools.writing import (
+    get_outline_context,
+    get_recent_chapters,
+    get_style_guide,
+    lookup_settings,
+    update_outline_status,
+    write_chapter,
+)
 
 
 def _load_prompt() -> str:
@@ -27,20 +32,20 @@ def build_writer_config(
             Tool(
                 name="lookup_settings",
                 description="Search settings by keywords. Args: keywords (list[str])",
-                parameters={"type": "object", "properties": {"keywords": {"type": "array", "items": {"type": "string"}}}},
-                handler=lambda **kw: lookup_settings(db, keywords=kw["keywords"], project_id=project_id),
+                parameters={"type": "object", "properties": {"keywords": {"type": "array", "items": {"type": "string"}}}},  # noqa: E501
+                handler=lambda **kw: lookup_settings(db, keywords=kw["keywords"], project_id=project_id),  # noqa: E501
             ),
             Tool(
                 name="get_outline_context",
                 description="Get outline tree for the project. Args: outline_id (str, optional)",
                 parameters={"type": "object", "properties": {"outline_id": {"type": "string"}}},
-                handler=lambda **kw: get_outline_context(db, project_id=project_id, outline_id=kw.get("outline_id")),
+                handler=lambda **kw: get_outline_context(db, project_id=project_id, outline_id=kw.get("outline_id")),  # noqa: E501
             ),
             Tool(
                 name="get_recent_chapters",
                 description="Get recent N chapters. Args: count (int, optional, default 3)",
                 parameters={"type": "object", "properties": {"count": {"type": "integer"}}},
-                handler=lambda **kw: get_recent_chapters(db, project_id=project_id, count=kw.get("count", 3)),
+                handler=lambda **kw: get_recent_chapters(db, project_id=project_id, count=kw.get("count", 3)),  # noqa: E501
             ),
             Tool(
                 name="get_style_guide",
@@ -50,8 +55,8 @@ def build_writer_config(
             ),
             Tool(
                 name="write_chapter",
-                description="Write/update a chapter. Args: outline_id (str), title (str), content (str), sort_order (int, optional)",
-                parameters={"type": "object", "properties": {"outline_id": {"type": "string"}, "title": {"type": "string"}, "content": {"type": "string"}, "sort_order": {"type": "integer"}}},
+                description="Write/update a chapter. Args: outline_id (str), title (str), content (str), sort_order (int, optional)",  # noqa: E501
+                parameters={"type": "object", "properties": {"outline_id": {"type": "string"}, "title": {"type": "string"}, "content": {"type": "string"}, "sort_order": {"type": "integer"}}},  # noqa: E501
                 handler=lambda **kw: write_chapter(
                     db, project_id=project_id, outline_id=kw["outline_id"],
                     title=kw["title"], content=kw["content"],
@@ -61,24 +66,23 @@ def build_writer_config(
             ),
             Tool(
                 name="update_outline_status",
-                description="Update outline node status. Args: outline_id (str), status (str, optional, default 'done')",
-                parameters={"type": "object", "properties": {"outline_id": {"type": "string"}, "status": {"type": "string"}}},
-                handler=lambda **kw: update_outline_status(db, outline_id=kw["outline_id"], status=kw.get("status", "done"), write_mode=write_mode),
+                description="Update outline node status. Args: outline_id (str), status (str, optional, default 'done')",  # noqa: E501
+                parameters={"type": "object", "properties": {"outline_id": {"type": "string"}, "status": {"type": "string"}}},  # noqa: E501
+                handler=lambda **kw: update_outline_status(db, outline_id=kw["outline_id"], status=kw.get("status", "done"), write_mode=write_mode),  # noqa: E501
             ),
             Tool(
                 name="search_any",
-                description="Cross-entity search. Args: q (str), type (str, optional), limit (int, optional)",
-                parameters={"type": "object", "properties": {"q": {"type": "string"}, "type": {"type": "string"}, "limit": {"type": "integer"}}},
-                handler=lambda **kw: search_any(db, q=kw.get("q", ""), type=kw.get("type", "all"), limit=kw.get("limit", 20)),
+                description="Cross-entity search. Args: q (str), type (str, optional), limit (int, optional)",  # noqa: E501
+                parameters={"type": "object", "properties": {"q": {"type": "string"}, "type": {"type": "string"}, "limit": {"type": "integer"}}},  # noqa: E501
+                handler=lambda **kw: search_any(db, q=kw.get("q", ""), type=kw.get("type", "all"), limit=kw.get("limit", 20), project_id=project_id),  # noqa: E501
             ),
             Tool(
                 name="report_progress",
                 description="Report progress. Args: message (str)",
                 parameters={"type": "object", "properties": {"message": {"type": "string"}}},
-                handler=lambda **kw: (blackboard.emit_event({"type": "progress", "message": kw["message"]}), "ok")[1] if blackboard else "ok",
+                handler=lambda **kw: (blackboard.emit_event({"type": "progress", "message": kw["message"]}), "ok")[1] if blackboard else "ok",  # noqa: E501
             ),
         ],
-        model="claude-sonnet-4-6",
         temperature=0.7,
         token_budget=blackboard.autonomy_config.token_budget if blackboard else 100_000,
     )

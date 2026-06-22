@@ -4,7 +4,6 @@ Idempotent: checks if columns exist before adding.
 """
 from sqlalchemy import text
 
-
 MIGRATION_KEY = "m002_add_agent_task_columns"
 
 

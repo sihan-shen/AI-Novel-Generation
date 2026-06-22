@@ -1,39 +1,6 @@
-/** HTTP client and auth provider for backend API communication. */
+/** HTTP client for backend API communication. */
 
 import ky from "ky";
-
-/* ------------------------------------------------------------------ */
-/*  Auth provider interface                                            */
-/* ------------------------------------------------------------------ */
-
-interface AuthProvider {
-  getHeaders(): Record<string, string>;
-}
-
-/** Phase 1: no authentication (identical to current backend behavior). */
-class NoAuthProvider implements AuthProvider {
-  getHeaders(): Record<string, string> {
-    return {};
-  }
-}
-
-/** Phase 2+ API-key provider (for lan/tailscale exposure). */
-class ApiKeyProvider implements AuthProvider {
-  constructor(private apiKey: string) {}
-  getHeaders(): Record<string, string> {
-    return { "X-API-Key": this.apiKey };
-  }
-}
-
-let authProvider: AuthProvider = new NoAuthProvider();
-
-export function setAuthProvider(provider: AuthProvider) {
-  authProvider = provider;
-}
-
-export function useApiKey(key: string) {
-  authProvider = new ApiKeyProvider(key);
-}
 
 /* ------------------------------------------------------------------ */
 /*  ky instance                                                        */
@@ -42,14 +9,6 @@ export function useApiKey(key: string) {
 export const api = ky.create({
   prefix: "/api",
   hooks: {
-    beforeRequest: [
-      ({ request }) => {
-        const headers = authProvider.getHeaders();
-        for (const [key, value] of Object.entries(headers)) {
-          request.headers.set(key, value);
-        }
-      },
-    ],
     afterResponse: [
       async (_state) => {
         const { response } = _state;

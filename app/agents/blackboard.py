@@ -3,8 +3,9 @@
 import asyncio
 import json
 import re
-from app.agents.base import AgentStep
+
 from app.agents.autonomy import AutonomyConfig
+from app.agents.base import AgentStep
 
 # Known separators that could break out of prompt structure
 _DANGEROUS_PATTERNS = [
@@ -62,6 +63,7 @@ class Blackboard:
         self.pending_setting_changes: list[dict] = []
         self.agent_steps: list[AgentStep] = []
         self.rewrite_round: int = 0
+        self.is_rewrite: bool = False
         self.autonomy_config = autonomy_config
         self.events: asyncio.Queue = asyncio.Queue()
         self.cumulative_tokens: int = 0
@@ -74,6 +76,8 @@ class Blackboard:
         self._settings_context: str = ""
         self._outline_context: str = ""
         self._style_context: str = ""
+        self._confirm_events: dict[str, asyncio.Event] = {}
+        self._confirm_outcomes: dict[str, dict] = {}
 
     def set_project_context(self, meta: dict, settings: str, outline: str, style: str) -> None:
         self._project_meta = meta
@@ -92,6 +96,16 @@ class Blackboard:
             parts.append(f"\n=== 大纲 ===\n{self._outline_context}")
         if self._style_context:
             parts.append(f"\n=== 文风 ===\n{self._style_context}")
+        if self.last_review:
+            parts.append(f"\n=== 上次审阅 ===\n综合分数: {self.last_review.get('overall_score', 'N/A')}\n发现: {self.last_review.get('findings', 'N/A')}")  # noqa: E501
+        if self.current_draft:
+            parts.append(f"\n=== 当前草稿 ===\n{self.current_draft[:500]}...")
+        if self.pending_setting_changes:
+            parts.append(f"\n=== 待确认设定变更 ===\n{json.dumps(self.pending_setting_changes, ensure_ascii=False)[:500]}")  # noqa: E501
+        if self.rewrite_round > 0:
+            parts.append(f"\n=== 重写轮次 ===\n第 {self.rewrite_round} 轮重写")
+        if self.current_chapter_id:
+            parts.append(f"\n=== 当前章节 ===\n{self.current_chapter_id}")
 
         if self.agent_steps:
             recent = self.agent_steps[-self._work_layer_size:]
@@ -129,13 +143,20 @@ class Blackboard:
             "current_draft": self.current_draft,
             "last_review": self.last_review,
             "pending_setting_changes": self.pending_setting_changes,
-            "agent_steps": [{"thought": s.thought, "tool_name": s.tool_name, "tool_args": s.tool_args, "result": s.result, "token_usage": s.token_usage} for s in self.agent_steps],
+            "agent_steps": [{"thought": s.thought, "tool_name": s.tool_name, "tool_args": s.tool_args, "result": s.result, "token_usage": s.token_usage} for s in self.agent_steps],  # noqa: E501
             "rewrite_round": self.rewrite_round,
+            "is_rewrite": self.is_rewrite,
             "autonomy_config": self.autonomy_config.to_dict(),
             "cumulative_tokens": self.cumulative_tokens,
             "compression_tokens": self.compression_tokens,
             "token_budget": self.token_budget,
             "context_summaries": self.context_summaries,
+            "_confirm_events": list(self._confirm_events.keys()),
+            "_confirm_outcomes": self._confirm_outcomes,
+            "_project_meta": self._project_meta,
+            "_settings_context": self._settings_context,
+            "_outline_context": self._outline_context,
+            "_style_context": self._style_context,
         }
 
     @classmethod
@@ -150,10 +171,19 @@ class Blackboard:
         bb.current_draft = data.get("current_draft")
         bb.last_review = data.get("last_review")
         bb.pending_setting_changes = data.get("pending_setting_changes", [])
-        bb.agent_steps = [AgentStep(thought=s["thought"], tool_name=s["tool_name"], tool_args=s["tool_args"], result=s["result"], token_usage=s["token_usage"]) for s in data.get("agent_steps", [])]
+        bb.agent_steps = [AgentStep(thought=s["thought"], tool_name=s["tool_name"], tool_args=s["tool_args"], result=s["result"], token_usage=s["token_usage"]) for s in data.get("agent_steps", [])]  # noqa: E501
         bb.rewrite_round = data.get("rewrite_round", 0)
+        bb.is_rewrite = data.get("is_rewrite", False)
         bb.cumulative_tokens = data.get("cumulative_tokens", 0)
         bb.compression_tokens = data.get("compression_tokens", 0)
         bb.token_budget = data.get("token_budget", 100_000)
         bb.context_summaries = data.get("context_summaries", [])
+        bb._confirm_events = {k: asyncio.Event() for k in data.get("_confirm_events", [])}
+        bb._confirm_outcomes = data.get("_confirm_outcomes", {})
+        bb.set_project_context(
+            meta=data.get("_project_meta", {}),
+            settings=data.get("_settings_context", ""),
+            outline=data.get("_outline_context", ""),
+            style=data.get("_style_context", ""),
+        )
         return bb

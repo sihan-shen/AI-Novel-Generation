@@ -1,5 +1,5 @@
-from app.models.project import Project
 from app.models.chapter import Chapter
+from app.models.project import Project
 
 
 def test_search_endpoint_returns_results(client, db_session):

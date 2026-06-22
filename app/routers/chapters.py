@@ -1,13 +1,17 @@
+import logging
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.chapter_snapshot import ChapterSnapshot
 from app.schemas.chapter import ChapterCreate, ChapterUpdate
 from app.schemas.response import APIResponse
 from app.services.chapter_service import ChapterService
+
+logger = logging.getLogger(__name__)
 
 
 class ChapterResponse(BaseModel):
@@ -23,8 +27,7 @@ class ChapterResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 router = APIRouter(prefix="/api/projects/{project_id}/chapters", tags=["chapters"])
@@ -52,7 +55,7 @@ async def get_chapter(chapter_id: str, project_id: str, db: Session = Depends(ge
 
 
 @router.put("/{chapter_id}", response_model=APIResponse[ChapterResponse])
-async def update_chapter(chapter_id: str, project_id: str, body: ChapterUpdate, db: Session = Depends(get_db)):
+async def update_chapter(chapter_id: str, project_id: str, body: ChapterUpdate, db: Session = Depends(get_db)):  # noqa: E501
     chapter = ChapterService.update(db, chapter_id, body)
     if not chapter:
         raise HTTPException(status_code=404, detail="Chapter not found")
@@ -69,3 +72,26 @@ async def delete_chapter(chapter_id: str, project_id: str, db: Session = Depends
 async def reorder_chapters(project_id: str, body: dict, db: Session = Depends(get_db)):
     ChapterService.reorder(db, body["items"])
     return APIResponse(data={"ok": True})
+
+
+@router.post("/{chapter_id}/rollback", response_model=APIResponse[dict])
+async def rollback_chapter(chapter_id: str, project_id: str, task_id: str = Query(...), db: Session = Depends(get_db)):  # noqa: E501
+    chapter = ChapterService.get(db, chapter_id)
+    if not chapter or chapter.project_id != project_id:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    snapshot = (
+        db.query(ChapterSnapshot)
+        .filter(ChapterSnapshot.chapter_id == chapter_id, ChapterSnapshot.task_id == task_id)
+        .order_by(ChapterSnapshot.created_at.desc())
+        .first()
+    )
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="No snapshot found for this chapter+task")
+
+    chapter.content = snapshot.content
+    chapter.title = snapshot.title
+    db.commit()
+    return APIResponse(data={"status": "restored", "chapter_id": chapter_id})
+
+logger.info("Module %s loaded", __name__)

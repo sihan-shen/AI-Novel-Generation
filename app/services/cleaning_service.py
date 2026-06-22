@@ -1,9 +1,15 @@
+import json
+import logging
 from typing import Any
+
 from sqlalchemy.orm import Session
-from app.models.setting import Setting, SettingRelation
-from app.models.chapter import ChapterSettingLink
-from app.llm.adapter import get_adapter
+
+from app.llm.adapter import get_adapter, record_usage
 from app.llm.prompts.loader import load as load_prompt
+from app.models.chapter import ChapterSettingLink
+from app.models.setting import Setting, SettingRelation
+
+logger = logging.getLogger(__name__)
 
 
 class CleaningService:
@@ -57,11 +63,17 @@ class CleaningService:
         adapter = get_adapter(db)
         messages = [
             {"role": "system", "content": load_prompt("cleaning_consistency")},
-            {"role": "user", "content": f"设定集：\n{context}\n\n检查逻辑矛盾和重复条目，输出JSON格式：{{\"contradictions\":[{{\"items\":[\"名称A\",\"名称B\"],\"issue\":\"...\",\"suggestion\":\"...\"}}],\"duplicates\":[{{\"items\":[\"名称A\",\"名称B\"],\"reason\":\"...\"}}]}}"}
+            {"role": "user", "content": f"设定集：\n{context}\n\n检查逻辑矛盾和重复条目，输出JSON格式：{{\"contradictions\":[{{\"items\":[\"名称A\",\"名称B\"],\"issue\":\"...\",\"suggestion\":\"...\"}}],\"duplicates\":[{{\"items\":[\"名称A\",\"名称B\"],\"reason\":\"...\"}}]}}"}  # noqa: E501
         ]
         response = await adapter.generate(messages, temperature=0.3)
         try:
-            import json
+            record_usage(  # type: ignore[attr-defined]
+                db, adapter.model, response.usage,  # type: ignore[attr-defined]
+                scenario="cleaning_check", project_id=project_id,
+            )
+        except Exception as e:
+            logger.warning("record_usage failed for cleaning_check: %s", e)
+        try:
             return json.loads(response.content)
         except (json.JSONDecodeError, ValueError):
             return {"contradictions": [], "duplicates": []}

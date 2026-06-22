@@ -1,6 +1,8 @@
 import uuid
-from datetime import datetime
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Float
+from datetime import UTC, datetime
+
+from sqlalchemy import Column, DateTime, Float, ForeignKey, String, Text
+
 from app.database import Base
 
 
@@ -13,8 +15,8 @@ class Style(Base):
     source_text = Column(Text, default="")
     analysis = Column(Text, default="{}")  # JSON
     tags = Column(Text, default="[]")  # JSON array
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))  # noqa: E501
 
 
 class ProjectStyleLink(Base):

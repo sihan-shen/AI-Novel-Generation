@@ -1,0 +1,97 @@
+============================= test session starts ==============================
+platform linux -- Python 3.14.5, pytest-8.4.2, pluggy-1.6.0 -- /home/sihan/文档/Projects/AI-Novel-Generation/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/sihan/文档/Projects/AI-Novel-Generation
+configfile: pyproject.toml
+plugins: anyio-4.13.0, asyncio-0.23.5
+asyncio: mode=Mode.AUTO
+collecting ... collected 9 items
+
+tests/test_api_chapters.py::TestChaptersAPI::test_list_empty PASSED      [ 11%]
+tests/test_api_chapters.py::TestChaptersAPI::test_create_and_list PASSED [ 22%]
+tests/test_api_chapters.py::TestChaptersAPI::test_get_by_id PASSED       [ 33%]
+tests/test_api_chapters.py::TestChaptersAPI::test_update PASSED          [ 44%]
+tests/test_api_chapters.py::TestChaptersAPI::test_delete PASSED          [ 55%]
+tests/test_api_chapters.py::TestChaptersAPI::test_get_not_found PASSED   [ 66%]
+tests/test_rollback.py::TestRollbackAPI::test_rollback_restores_content PASSED [ 77%]
+tests/test_rollback.py::TestRollbackAPI::test_rollback_no_snapshot PASSED [ 88%]
+tests/test_rollback.py::TestRollbackAPI::test_rollback_cross_project_guard PASSED [100%]
+
+=============================== warnings summary ===============================
+app/config.py:4
+  /home/sihan/文档/Projects/AI-Novel-Generation/app/config.py:4: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+app/schemas/project.py:18
+  /home/sihan/文档/Projects/AI-Novel-Generation/app/schemas/project.py:18: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class ProjectResponse(BaseModel):
+
+app/schemas/outline.py:25
+  /home/sihan/文档/Projects/AI-Novel-Generation/app/schemas/outline.py:25: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class OutlineResponse(BaseModel):
+
+app/routers/settings.py:13
+  /home/sihan/文档/Projects/AI-Novel-Generation/app/routers/settings.py:13: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class SettingResponse(BaseModel):
+
+app/routers/chapters.py:14
+  /home/sihan/文档/Projects/AI-Novel-Generation/app/routers/chapters.py:14: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class ChapterResponse(BaseModel):
+
+app/routers/styles.py:12
+  /home/sihan/文档/Projects/AI-Novel-Generation/app/routers/styles.py:12: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class StyleResponse(BaseModel):
+
+app/routers/reviews.py:13
+  /home/sihan/文档/Projects/AI-Novel-Generation/app/routers/reviews.py:13: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class ReviewResponse(BaseModel):
+
+app/routers/ideas.py:12
+  /home/sihan/文档/Projects/AI-Novel-Generation/app/routers/ideas.py:12: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class IdeaResponse(BaseModel):
+
+app/main.py:67
+  /home/sihan/文档/Projects/AI-Novel-Generation/app/main.py:67: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+.venv/lib/python3.14/site-packages/fastapi/applications.py:4598
+  /home/sihan/文档/Projects/AI-Novel-Generation/.venv/lib/python3.14/site-packages/fastapi/applications.py:4598: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:168: 342 warnings
+  /home/sihan/文档/Projects/AI-Novel-Generation/.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:168: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return asyncio.iscoroutinefunction(obj) or inspect.isasyncgenfunction(obj)
+
+.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:433
+.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:433
+.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:433
+.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:433
+.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:433
+.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:433
+.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:433
+.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:433
+.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:433
+  /home/sihan/文档/Projects/AI-Novel-Generation/.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:433: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return asyncio.iscoroutinefunction(func)
+
+tests/test_api_chapters.py::TestChaptersAPI::test_list_empty
+  /home/sihan/文档/Projects/AI-Novel-Generation/.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:1006: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    return asyncio.get_event_loop_policy()
+
+tests/test_api_chapters.py: 21 warnings
+tests/test_rollback.py: 17 warnings
+  /home/sihan/文档/Projects/AI-Novel-Generation/.venv/lib/python3.14/site-packages/sqlalchemy/sql/schema.py:3624: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 9 passed, 400 warnings in 0.18s ========================

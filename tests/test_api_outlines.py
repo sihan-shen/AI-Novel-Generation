@@ -1,6 +1,5 @@
-import pytest
-from app.models.project import Project
 from app.models.outline import Outline
+from app.models.project import Project
 
 
 class TestOutlinesAPI:

@@ -63,6 +63,8 @@ async def fetch_models(provider: str, api_key: str = "", base_url: str = "") -> 
     """Fetch available models from the provider's API. Returns list of model IDs."""
     import httpx
 
+    provider = provider.lower()
+
     if provider == "openai":
         url = "https://api.openai.com/v1/models"
         headers = {"Authorization": f"Bearer {api_key}"}

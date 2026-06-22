@@ -1,0 +1,15 @@
+{
+  "schema_version": 2,
+  "active_work_id": "agent-and-project-optimization",
+  "works": {
+    "agent-and-project-optimization": {
+      "work_id": "agent-and-project-optimization",
+      "active_plan": ".omo/plans/agent-and-project-optimization.md",
+      "plan_name": "agent-and-project-optimization",
+      "session_ids": ["codex:opencode-wave0"],
+      "status": "active",
+      "worktree_path": null,
+      "feature_branch": "feat/agent-and-project-optimization"
+    }
+  }
+}

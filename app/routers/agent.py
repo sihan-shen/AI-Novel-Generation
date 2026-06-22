@@ -1,20 +1,29 @@
 """Agent router — SSE streaming + task API."""
 
+from __future__ import annotations
+
 import asyncio
+import contextlib
 import json
 import uuid
-from fastapi import APIRouter, Depends, Query
-from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from datetime import UTC, datetime, timedelta
 
-from app.database import get_db
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from app.agents.orchestrator import Orchestrator
+from app.database import SessionLocal, get_db
 from app.llm.adapter import get_adapter
-from app.models.agent_task import AgentTask
 from app.models.agent_message import AgentMessage
-from datetime import datetime, timedelta
+from app.models.agent_task import AgentTask
+from app.schemas.response import APIResponse
 
 _project_locks: dict[str, asyncio.Lock] = {}
+_pending_confirms: dict[str, asyncio.Event] = {}
+_confirm_outcomes: dict[str, dict] = {}
+_running_orchestrators: dict[str, Orchestrator] = {}  # noqa: F821
 
 def _get_project_lock(project_id: str) -> asyncio.Lock:
     if project_id not in _project_locks:
@@ -37,7 +46,8 @@ async def _detect_intent(adapter, message: str) -> str:
 判断意图：
 - "brainstorm": 创意帮助、灵感拓展、方案探索、设定讨论。
   隐含表达："还能怎么玩"、"卡住了"、"没思路"、"有什么推荐"、"给我几个方案"、"不知道怎么"、"不够精彩"
-- "writing": 明确的写作/修改/生成请求。边界：即使用户表达困惑（"不知道怎么写第一章"），只要提到具体章节/写作动作，归类为 writing
+- "writing": 明确的写作/修改/生成请求。边界：即使用户表达困惑（"不知道怎么写第一章"），
+  只要提到具体章节/写作动作，归类为 writing
 - "other": 以上都不是
 
 返回 JSON: {{"intent": "brainstorm|writing|other"}}"""
@@ -63,10 +73,10 @@ def _check_timeout(db: Session, task: AgentTask) -> bool:
     ).order_by(AgentMessage.created_at.desc()).first()
 
     if last_msg and last_msg.created_at:
-        elapsed = datetime.utcnow() - last_msg.created_at
+        elapsed = datetime.now(UTC) - last_msg.created_at
         if elapsed > timedelta(minutes=15):
-            task.status = "timeout"
-            task.completed_at = datetime.utcnow()
+            task.status = "timeout"  # type: ignore[assignment]
+            task.completed_at = datetime.now(UTC)  # type: ignore[assignment]
             db.commit()
             return True
     return False
@@ -80,21 +90,21 @@ async def _handle_brainstorm_turn(
     adapter,
 ) -> list[dict]:
     """Execute one turn of brainstorm: load history, run agent, persist response."""
-    from app.agents.base import run_agent
     from app.agents.agents.brainstorm import build_brainstorm_config
-    from app.agents.blackboard import Blackboard
     from app.agents.autonomy import AutonomyConfig
+    from app.agents.base import run_agent
+    from app.agents.blackboard import Blackboard
 
     # Check for commands
     if message.strip() in ("/done", "/end"):
-        task.status = "completed"
-        task.completed_at = datetime.utcnow()
+        task.status = "completed"  # type: ignore[assignment]
+        task.completed_at = datetime.now(UTC)  # type: ignore[assignment]
         db.commit()
-        return [{"type": "brainstorm_end", "message": "脑暴已结束", "pending_inspirations": task.task_metadata.get("pending_inspirations", [])}]
+        return [{"type": "brainstorm_end", "message": "脑暴已结束", "pending_inspirations": task.task_metadata.get("pending_inspirations", [])}]  # noqa: E501
 
     if message.strip() in ("/cancel",):
-        task.status = "cancelled"
-        task.completed_at = datetime.utcnow()
+        task.status = "cancelled"  # type: ignore[assignment]
+        task.completed_at = datetime.now(UTC)  # type: ignore[assignment]
         db.commit()
         return [{"type": "brainstorm_end", "message": "脑暴已取消"}]
 
@@ -116,7 +126,7 @@ async def _handle_brainstorm_turn(
         context_lines.append(f"类型: {project.genre}")
 
     # Build agent config and run
-    config = build_brainstorm_config(db=db, project_id=project_id, task_id=task.id)
+    config = build_brainstorm_config(db=db, project_id=project_id, task_id=task.id)  # type: ignore[arg-type]
     blackboard = Blackboard(
         project_id=project_id,
         task={"type": "brainstorm", "task_id": task.id},
@@ -136,14 +146,14 @@ async def _handle_brainstorm_turn(
                 hist_text += f"\n{role_label}: {h['content'][:500]}"
             base += hist_text
         return base
-    blackboard.get_context_for = _brainstorm_context
+    blackboard.get_context_for = _brainstorm_context  # type: ignore[method-assign]
 
-    result = await run_agent(config, blackboard, adapter)
+    result = await run_agent(config, blackboard, adapter, db=db, agent_type="brainstorm")
 
     # Handle handoff
     if result.status == "handoff":
-        task.status = "completed"
-        task.completed_at = datetime.utcnow()
+        task.status = "completed"  # type: ignore[assignment]
+        task.completed_at = datetime.now(UTC)  # type: ignore[assignment]
         db.commit()
         return [{
             "type": "brainstorm_handoff",
@@ -175,10 +185,10 @@ async def _handle_brainstorm_turn(
         sequence=seq,
     )
     db.add(assistant_msg)
-    task.total_steps = seq
+    task.total_steps = seq  # type: ignore[assignment]
     if result.steps:
-        task.total_tokens = (task.total_tokens or 0) + result.steps[0].token_usage.get("input_tokens", 0) + result.steps[0].token_usage.get("output_tokens", 0)
-    task.updated_at = datetime.utcnow()
+        task.total_tokens = (task.total_tokens or 0) + result.steps[0].token_usage.get("input_tokens", 0) + result.steps[0].token_usage.get("output_tokens", 0)  # noqa: E501
+    task.updated_at = datetime.now(UTC)  # type: ignore[assignment]
     db.commit()
 
     # Build SSE events
@@ -198,15 +208,15 @@ async def _handle_brainstorm_turn(
     task.update_task_metadata(turn_count=turn_count)
     db.commit()
     if turn_count >= 100:
-        task.status = "completed"
-        task.completed_at = datetime.utcnow()
+        task.status = "completed"  # type: ignore[assignment]
+        task.completed_at = datetime.now(UTC)  # type: ignore[assignment]
         db.commit()
-        events.append({"type": "brainstorm_end", "message": "已达到最大轮数(100)，脑暴自动结束", "pending_inspirations": task.task_metadata.get("pending_inspirations", [])})
+        events.append({"type": "brainstorm_end", "message": "已达到最大轮数(100)，脑暴自动结束", "pending_inspirations": task.task_metadata.get("pending_inspirations", [])})  # noqa: E501
 
     return events
 
 
-router = APIRouter(prefix="/project/{project_id}/agent", tags=["agent"])
+router = APIRouter(prefix="/api/project/{project_id}/agent", tags=["agent"])
 class ChatRequest(BaseModel):
     message: str
     chapter_outline_id: str | None = None
@@ -217,6 +227,11 @@ class ConfirmRequest(BaseModel):
     confirm_id: str
     action: str  # 'approve' | 'reject' | 'modify'
     modification: str | None = None
+
+
+class CancelRequest(BaseModel):
+    confirm_id: str | None = None
+    task_id: str | None = None
 
 
 @router.post("/chat/stream")
@@ -240,8 +255,8 @@ async def chat_stream(
                 ).order_by(AgentMessage.sequence).all()
                 for m in old_msgs:
                     event_data = json.loads(m.msg_metadata or "{}") if m.msg_metadata else {}
-                    yield f"event: {m.message_type}\ndata: {json.dumps({'sequence': m.sequence, **event_data}, ensure_ascii=False)}\n\n"
-                yield f"event: reconnect\ndata: {{\"status\": \"reconnected\", \"task_id\": \"{task.id}\"}}\n\n"
+                    yield f"event: {m.message_type}\ndata: {json.dumps({'sequence': m.sequence, **event_data}, ensure_ascii=False)}\n\n"  # noqa: E501
+                yield f"event: reconnect\ndata: {{\"status\": \"reconnected\", \"task_id\": \"{task.id}\"}}\n\n"  # noqa: E501
             else:
                 yield "event: reconnect\ndata: {\"status\": \"no_active_task\"}\n\n"
             return
@@ -256,7 +271,7 @@ async def chat_stream(
             if active_task and active_task.task_type == "brainstorm":
                 # Check timeout
                 if _check_timeout(db, active_task):
-                    yield f"event: brainstorm_end\ndata: {json.dumps({'message': '脑暴已超时', 'timeout': True}, ensure_ascii=False)}\n\n"
+                    yield f"event: brainstorm_end\ndata: {json.dumps({'message': '脑暴已超时', 'timeout': True}, ensure_ascii=False)}\n\n"  # noqa: E501
                     return
 
                 # Handle brainstorm turn
@@ -267,15 +282,13 @@ async def chat_stream(
                 # Handle handoff from brainstorm
                 handoff_event = next((e for e in events if e["type"] == "brainstorm_handoff"), None)
                 if handoff_event:
-                    yield f"event: brainstorm_end\ndata: {json.dumps({'message': '切换到写作模式', 'handoff': True}, ensure_ascii=False)}\n\n"
-                    yield f"event: orchestrator_thought\ndata: {json.dumps({'text': '脑暴已完成，请重新发送写作请求'}, ensure_ascii=False)}\n\n"
+                    yield f"event: brainstorm_end\ndata: {json.dumps({'message': '切换到写作模式', 'handoff': True}, ensure_ascii=False)}\n\n"  # noqa: E501
+                    yield f"event: orchestrator_thought\ndata: {json.dumps({'text': '脑暴已完成，请重新发送写作请求'}, ensure_ascii=False)}\n\n"  # noqa: E501
                     return
 
                 # Emit brainstorm events
-                seq = 0
                 for event in events:
-                    seq += 1
-                    yield f"event: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
+                    yield f"event: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"  # noqa: E501
                 return
 
             # ---- No active task: detect intent ----
@@ -300,24 +313,22 @@ async def chat_stream(
                     db.add(task_obj)
                     db.commit()
 
-                    yield f"event: agent_start\ndata: {json.dumps({'agent': 'brainstorm', 'task_id': task_obj.id}, ensure_ascii=False)}\n\n"
+                    yield f"event: agent_start\ndata: {json.dumps({'agent': 'brainstorm', 'task_id': task_obj.id}, ensure_ascii=False)}\n\n"  # noqa: E501
 
                     events = await _handle_brainstorm_turn(
                         db, task_obj, body.message, project_id, adapter
                     )
-                    seq = 0
                     for event in events:
-                        seq += 1
-                        yield f"event: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
+                        yield f"event: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"  # noqa: E501
                     return
 
         # ---- Normal orchestrator flow (original code, outside the async with lock) ----
-        from app.agents.blackboard import Blackboard
         from app.agents.autonomy import AutonomyConfig
+        from app.agents.blackboard import Blackboard
         from app.agents.orchestrator import Orchestrator
 
         autonomy = AutonomyConfig()
-        task_def = {"type": "write_chapter", "chapter_outline_id": body.chapter_outline_id, "target_words": body.target_words}
+        task_def = {"type": "write_chapter", "chapter_outline_id": body.chapter_outline_id, "target_words": body.target_words}  # noqa: E501
         task_obj = AgentTask(
             id=str(uuid.uuid4()),
             project_id=project_id,
@@ -331,8 +342,10 @@ async def chat_stream(
         db.commit()
         task_id = task_obj.id
 
+        orch_db = SessionLocal()
         blackboard = Blackboard(project_id=project_id, task=task_def, autonomy_config=autonomy)
-        orch = Orchestrator(db=db, blackboard=blackboard, adapter=adapter, task_id=task_id)
+        orch = Orchestrator(db=orch_db, blackboard=blackboard, adapter=adapter, task_id=task_id)
+        _running_orchestrators[task_id] = orch
         orch_task = asyncio.create_task(orch.run())
         seq = 0
 
@@ -340,15 +353,19 @@ async def chat_stream(
             while not orch_task.done() or not blackboard.events.empty():
                 try:
                     event = await asyncio.wait_for(blackboard.events.get(), timeout=0.5)
+                    if event.get("type") == "confirm_request":
+                        event_id = event.get("id")
+                        if event_id and event_id in blackboard._confirm_events:
+                            _pending_confirms[event_id] = blackboard._confirm_events[event_id]
                     seq += 1
                     event["sequence"] = seq
-                    yield f"event: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
+                    yield f"event: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"  # noqa: E501
 
                     content = event.get("text", event.get("summary", event.get("tool", "")))
                     msg = AgentMessage(
                         id=str(uuid.uuid4()),
                         task_id=task_id,
-                        role="user" if event["type"] in ("user_message", "confirm_response") else "assistant",
+                        role="user" if event["type"] in ("user_message", "confirm_response") else "assistant",  # noqa: E501
                         content=str(content)[:2000],
                         message_type=event["type"],
                         msg_metadata=json.dumps(event, ensure_ascii=False),
@@ -360,100 +377,126 @@ async def chat_stream(
                     if seq % 10 == 1:
                         task_obj.total_steps = seq
                         db.commit()
-                except asyncio.TimeoutError:
+
+                    if seq % 5 == 0:
+                        try:
+                            task_obj.blackboard_snapshot = json.dumps(blackboard.to_snapshot(), ensure_ascii=False)  # noqa: E501
+                            db.commit()
+                        except Exception:
+                            pass
+                except TimeoutError:
                     if orch_task.done():
                         break
         finally:
+            _running_orchestrators.pop(task_id, None)
             final_state = blackboard.orchestrator_state
             task_obj.orchestrator_state = final_state
             task_obj.total_steps = seq
             task_obj.total_tokens = blackboard.cumulative_tokens
             if final_state in ("DONE", "CANCELLED", "IDLE"):
                 task_obj.status = "completed" if final_state == "DONE" else "cancelled"
-                task_obj.completed_at = datetime.utcnow()
+                task_obj.completed_at = datetime.now(UTC)
             elif final_state == "WAITING_USER":
                 task_obj.status = "waiting_user"
-            try:
-                task_obj.blackboard_snapshot = json.dumps(blackboard.to_snapshot(), ensure_ascii=False)
-            except Exception:
-                pass
+            with contextlib.suppress(Exception):
+                task_obj.blackboard_snapshot = json.dumps(blackboard.to_snapshot(), ensure_ascii=False)  # noqa: E501
             db.commit()
+            orch_db.close()
 
         yield "event: done\ndata: {}\n\n"
 
     return StreamingResponse(
         event_stream(), media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},  # noqa: E501
     )
 
 
-@router.post("/chat/confirm")
+@router.post("/chat/confirm", response_model=APIResponse[dict])
 async def confirm_action(
     project_id: str,
     body: ConfirmRequest,
     db: Session = Depends(get_db),
 ):
     """Handle user response to a confirm request."""
-    task = db.query(AgentTask).filter(
-        AgentTask.project_id == project_id,
-        AgentTask.status == "waiting_user",
-    ).first()
+    event = _pending_confirms.get(body.confirm_id)
+    if event is None:
+        return JSONResponse(
+            status_code=404,
+            content={"status": "error", "message": "Unknown or expired confirm_id"},
+        )
 
-    if not task:
-        return {"status": "error", "message": "No active task waiting for user input"}
-
-    msg = AgentMessage(
-        id=str(uuid.uuid4()),
-        task_id=task.id,
-        role="user",
-        content=f"Confirm {body.confirm_id}: {body.action}",
-        message_type="confirm_response",
-        msg_metadata=json.dumps({"confirm_id": body.confirm_id, "action": body.action, "modification": body.modification}),
-        sequence=999,
-    )
-    db.add(msg)
-    db.commit()
-    return {"status": "ok", "message": f"Action '{body.action}' recorded", "task_id": task.id}
+    _confirm_outcomes[body.confirm_id] = {
+        "action": body.action,
+        "modification": body.modification,
+    }
+    event.set()
+    _pending_confirms.pop(body.confirm_id, None)
+    return APIResponse(data={"status": "ok", "message": f"Action '{body.action}' applied"})
 
 
-@router.get("/pending-actions")
+@router.post("/chat/cancel", response_model=APIResponse[dict])
+async def cancel_chat(
+    project_id: str,
+    body: CancelRequest | None = None,
+    db: Session = Depends(get_db),
+):
+    """Request cancellation of the currently running orchestrator for a project."""
+    active_task = _get_active_task(db, project_id)
+    if active_task is None:
+        return APIResponse(data={"status": "ok", "message": "No active task"})
+
+    orch = _running_orchestrators.get(active_task.id)
+    if orch is None:
+        return APIResponse(data={"status": "ok", "message": "No active task"})
+
+    orch.cancel()
+    return APIResponse(data={"status": "ok", "message": "Cancellation requested"})
+
+
+@router.get("/pending-actions", response_model=APIResponse[dict])
 async def pending_actions(project_id: str, db: Session = Depends(get_db)):
     task = db.query(AgentTask).filter(
         AgentTask.project_id == project_id,
         AgentTask.status == "waiting_user",
     ).first()
-    if not task:
-        return {"has_pending": False, "actions": []}
-    pending_msgs = db.query(AgentMessage).filter(
-        AgentMessage.task_id == task.id,
-        AgentMessage.message_type == "confirm_request",
-    ).all()
-    return {"has_pending": True, "task_id": task.id, "actions": [{"id": m.id, "summary": m.content[:200]} for m in pending_msgs]}
+    actions = []
+    if task:
+        pending_msgs = db.query(AgentMessage).filter(
+            AgentMessage.task_id == task.id,
+            AgentMessage.message_type == "confirm_request",
+        ).all()
+        actions = [{"id": m.id, "summary": m.content[:200]} for m in pending_msgs]
+    return APIResponse(data={
+        "has_pending": bool(task) or bool(_pending_confirms),
+        "task_id": task.id if task else None,
+        "actions": actions,
+        "confirm_ids": list(_pending_confirms.keys()),
+    })
 
 
-@router.get("/tasks")
+@router.get("/tasks", response_model=APIResponse[dict])
 async def list_tasks(project_id: str, db: Session = Depends(get_db)):
     from app.models.agent_task import AgentTask
-    tasks = db.query(AgentTask).filter(AgentTask.project_id == project_id).order_by(AgentTask.created_at.desc()).limit(20).all()
-    return {"tasks": [{"id": t.id, "task_type": t.task_type, "status": t.status, "total_steps": t.total_steps, "total_tokens": t.total_tokens, "created_at": t.created_at.isoformat() if t.created_at else None, "completed_at": t.completed_at.isoformat() if t.completed_at else None} for t in tasks]}
+    tasks = db.query(AgentTask).filter(AgentTask.project_id == project_id).order_by(AgentTask.created_at.desc()).limit(20).all()  # noqa: E501
+    return APIResponse(data={"tasks": [{"id": t.id, "task_type": t.task_type, "status": t.status, "total_steps": t.total_steps, "total_tokens": t.total_tokens, "created_at": t.created_at.isoformat() if t.created_at else None, "completed_at": t.completed_at.isoformat() if t.completed_at else None} for t in tasks]})  # noqa: E501
 
 
 class ConfirmInspirationsRequest(BaseModel):
     inspiration_ids: list[str]
 
 
-@router.post("/inspirations/confirm")
+@router.post("/inspirations/confirm", response_model=APIResponse[dict])
 async def confirm_inspirations(
     project_id: str,
     body: ConfirmInspirationsRequest,
     db: Session = Depends(get_db),
 ):
     """Confirm and save selected inspirations from a completed brainstorm session."""
-    from app.services.idea_service import IdeaService
-    from app.services.setting_service import SettingService
-    from app.services.outline_service import OutlineService
-    from app.schemas.setting import SettingCreate
     from app.schemas.outline import OutlineCreate
+    from app.schemas.setting import SettingCreate
+    from app.services.idea_service import IdeaService
+    from app.services.outline_service import OutlineService
+    from app.services.setting_service import SettingService
 
     # Find the most recent completed brainstorm task
     task = db.query(AgentTask).filter(
@@ -463,7 +506,7 @@ async def confirm_inspirations(
     ).order_by(AgentTask.updated_at.desc()).first()
 
     if not task:
-        return {"status": "error", "message": "No completed brainstorm session found"}
+        return APIResponse(data={"status": "error", "message": "No completed brainstorm session found"})  # noqa: E501
 
     pending = task.task_metadata.get("pending_inspirations", [])
     saved_count = 0
@@ -503,4 +546,4 @@ async def confirm_inspirations(
     task.update_task_metadata(pending_inspirations=remaining)
     db.commit()
 
-    return {"status": "ok", "saved_count": saved_count}
+    return APIResponse(data={"status": "ok", "saved_count": saved_count})

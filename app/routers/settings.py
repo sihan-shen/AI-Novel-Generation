@@ -1,13 +1,16 @@
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.schemas.setting import SettingCreate, SettingUpdate
 from app.schemas.response import APIResponse
+from app.schemas.setting import SettingCreate, SettingUpdate
 from app.services.setting_service import SettingService
+
+logger = logging.getLogger(__name__)
 
 
 class SettingResponse(BaseModel):
@@ -23,15 +26,14 @@ class SettingResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 router = APIRouter(prefix="/api/projects/{project_id}/settings", tags=["settings"])
 
 
 @router.get("", response_model=APIResponse[list[SettingResponse]])
-async def list_settings(project_id: str, category: str | None = None, db: Session = Depends(get_db)):
+async def list_settings(project_id: str, category: str | None = None, db: Session = Depends(get_db)):  # noqa: E501
     settings = SettingService.list_by_project(db, project_id, category)
     return APIResponse(data=settings)
 
@@ -49,11 +51,11 @@ async def get_setting(setting_id: str, project_id: str, db: Session = Depends(ge
     if not setting:
         raise HTTPException(status_code=404, detail="Setting not found")
     relations = SettingService.get_relations(db, setting_id)
-    return APIResponse(data={"setting": SettingResponse.model_validate(setting), "relations": relations})
+    return APIResponse(data={"setting": SettingResponse.model_validate(setting), "relations": relations})  # noqa: E501
 
 
 @router.put("/{setting_id}", response_model=APIResponse[SettingResponse])
-async def update_setting(setting_id: str, project_id: str, body: SettingUpdate, db: Session = Depends(get_db)):
+async def update_setting(setting_id: str, project_id: str, body: SettingUpdate, db: Session = Depends(get_db)):  # noqa: E501
     setting = SettingService.update(db, setting_id, body)
     if not setting:
         raise HTTPException(status_code=404, detail="Setting not found")

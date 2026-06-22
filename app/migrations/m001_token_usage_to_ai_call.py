@@ -4,7 +4,6 @@ Idempotent: checks for an existing marker row to avoid re-running.
 """
 from sqlalchemy import text
 
-
 MIGRATION_KEY = "m001_token_usage_to_ai_call"
 
 

@@ -1,10 +1,16 @@
 import json
-from app.models.project import Project
-from app.models.outline import Outline
-from app.models.setting import Setting
-from app.models.chapter import Chapter
-from app.agents.tools.writing import lookup_settings, get_outline_context, get_recent_chapters, write_chapter
+
 from app.agents.tools.shared import search_any
+from app.agents.tools.writing import (
+    get_outline_context,
+    get_recent_chapters,
+    lookup_settings,
+    write_chapter,
+)
+from app.models.chapter import Chapter
+from app.models.outline import Outline
+from app.models.project import Project
+from app.models.setting import Setting
 
 
 def test_lookup_settings_finds_by_keyword(db_session):
@@ -66,3 +72,154 @@ def test_search_any(db_session):
     result = json.loads(search_any(db_session, q="时间", type="project"))
     assert len(result) >= 1
     assert result[0]["title"] == "时间机器"
+
+
+def test_search_any_project_scoped(db_session):
+    """search_any with project_id only returns rows from that project."""
+    db_session.add(Project(id="p1", title="Project Alpha"))
+    db_session.add(Project(id="p2", title="Project Beta"))
+    db_session.add(Setting(id="s1", project_id="p1", category="人物", name="Alice", summary="Alice in p1", content="...", key="alice", weight=1, status="active"))
+    db_session.add(Setting(id="s2", project_id="p2", category="人物", name="Bob", summary="Bob in p2", content="...", key="bob", weight=1, status="active"))
+    db_session.commit()
+
+    result = json.loads(search_any(db_session, q="Alice", type="setting", project_id="p1"))
+    assert len(result) == 1
+    assert result[0]["title"] == "Alice"
+
+    # The OTHER project's setting must NOT appear
+    result_other = json.loads(search_any(db_session, q="Bob", type="setting", project_id="p1"))
+    assert len(result_other) == 0
+
+
+def test_search_any_project_id_none_fallback_global(db_session):
+    """project_id=None falls back to global search (backward compat)."""
+    db_session.add(Project(id="p1", title="Project Alpha"))
+    db_session.add(Project(id="p2", title="Project Beta"))
+    db_session.add(Setting(id="s1", project_id="p1", category="人物", name="Alice", summary="Alice in p1", content="...", key="alice", weight=1, status="active"))
+    db_session.add(Setting(id="s2", project_id="p2", category="人物", name="Bob", summary="Bob in p2", content="...", key="bob", weight=1, status="active"))
+    db_session.commit()
+
+    result = json.loads(search_any(db_session, q="", type="setting", project_id=None))
+    assert len(result) == 2
+
+
+def test_writer_search_any_tool_is_project_scoped(db_session):
+    """Writer agent's search_any handler passes project_id."""
+    from app.agents.agents.writer import build_writer_config
+    from app.agents.autonomy import AutonomyConfig
+    from app.agents.blackboard import Blackboard
+
+    db_session.add(Project(id="p1", title="Project Alpha"))
+    db_session.add(Project(id="p2", title="Project Beta"))
+    db_session.add(Setting(id="s1", project_id="p1", category="人物", name="Alice", summary="Alice in p1", content="...", key="alice", weight=1, status="active"))
+    db_session.add(Setting(id="s2", project_id="p2", category="人物", name="Bob", summary="Bob in p2", content="...", key="bob", weight=1, status="active"))
+    db_session.commit()
+
+    bb = Blackboard(project_id="p1", task={"type": "writing"}, autonomy_config=AutonomyConfig())
+    config = build_writer_config(db_session, project_id="p1", blackboard=bb)
+    search_tool = next(t for t in config.tools if t.name == "search_any")
+    result = json.loads(search_tool.handler(q="Alice"))
+    assert len(result) == 1
+    assert result[0]["title"] == "Alice"
+
+    # Must NOT find the other project's setting
+    result_other = json.loads(search_tool.handler(q="Bob"))
+    assert len(result_other) == 0
+
+
+def test_reviewer_search_any_tool_is_project_scoped(db_session):
+    """Reviewer agent's search_any handler passes project_id."""
+    from app.agents.agents.reviewer import build_reviewer_config
+    from app.agents.autonomy import AutonomyConfig
+    from app.agents.blackboard import Blackboard
+
+    db_session.add(Project(id="p1", title="Project Alpha"))
+    db_session.add(Project(id="p2", title="Project Beta"))
+    db_session.add(Setting(id="s1", project_id="p1", category="人物", name="Alice", summary="Alice in p1", content="...", key="alice", weight=1, status="active"))
+    db_session.add(Setting(id="s2", project_id="p2", category="人物", name="Bob", summary="Bob in p2", content="...", key="bob", weight=1, status="active"))
+    db_session.commit()
+
+    bb = Blackboard(project_id="p1", task={"type": "review"}, autonomy_config=AutonomyConfig())
+    config = build_reviewer_config(db_session, project_id="p1", chapter_id="c1", blackboard=bb)
+    search_tool = next(t for t in config.tools if t.name == "search_any")
+    result = json.loads(search_tool.handler(q="Alice"))
+    assert len(result) == 1
+    assert result[0]["title"] == "Alice"
+
+    result_other = json.loads(search_tool.handler(q="Bob"))
+    assert len(result_other) == 0
+
+
+def test_settings_mgr_search_any_tool_is_project_scoped(db_session):
+    """Settings manager agent's search_any handler passes project_id."""
+    from app.agents.agents.settings_mgr import build_settings_mgr_config
+    from app.agents.autonomy import AutonomyConfig
+    from app.agents.blackboard import Blackboard
+
+    db_session.add(Project(id="p1", title="Project Alpha"))
+    db_session.add(Project(id="p2", title="Project Beta"))
+    db_session.add(Setting(id="s1", project_id="p1", category="人物", name="Alice", summary="Alice in p1", content="...", key="alice", weight=1, status="active"))
+    db_session.add(Setting(id="s2", project_id="p2", category="人物", name="Bob", summary="Bob in p2", content="...", key="bob", weight=1, status="active"))
+    db_session.commit()
+
+    bb = Blackboard(project_id="p1", task={"type": "settings"}, autonomy_config=AutonomyConfig())
+    config = build_settings_mgr_config(db_session, project_id="p1", blackboard=bb)
+    search_tool = next(t for t in config.tools if t.name == "search_any")
+    result = json.loads(search_tool.handler(q="Alice"))
+    assert len(result) == 1
+    assert result[0]["title"] == "Alice"
+
+    result_other = json.loads(search_tool.handler(q="Bob"))
+    assert len(result_other) == 0
+
+
+def test_brainstorm_search_any_tool_is_project_scoped(db_session):
+    """Brainstorm agent's search_any handler passes project_id."""
+    from app.agents.agents.brainstorm import build_brainstorm_config
+
+    db_session.add(Project(id="p1", title="Project Alpha"))
+    db_session.add(Project(id="p2", title="Project Beta"))
+    db_session.add(Setting(id="s1", project_id="p1", category="人物", name="Alice", summary="Alice in p1", content="...", key="alice", weight=1, status="active"))
+    db_session.add(Setting(id="s2", project_id="p2", category="人物", name="Bob", summary="Bob in p2", content="...", key="bob", weight=1, status="active"))
+    db_session.commit()
+
+    config = build_brainstorm_config(db_session, project_id="p1", task_id="t1")
+    search_tool = next(t for t in config.tools if t.name == "search_any")
+    result = json.loads(search_tool.handler(q="Alice"))
+    assert len(result) == 1
+    assert result[0]["title"] == "Alice"
+
+    result_other = json.loads(search_tool.handler(q="Bob"))
+    assert len(result_other) == 0
+
+
+def test_brainstorm_config_includes_list_pending_inspirations(db_session):
+    """build_brainstorm_config tools list includes list_pending_inspirations."""
+    from app.agents.agents.brainstorm import build_brainstorm_config
+
+    config = build_brainstorm_config(db_session, project_id="p1", task_id="t1")
+    tool_names = {t.name for t in config.tools}
+    assert "list_pending_inspirations" in tool_names
+
+
+def test_list_pending_inspirations_tool(db_session):
+    """list_pending_inspirations returns pending inspirations."""
+    from app.agents.agents.brainstorm import build_brainstorm_config
+    from app.models.agent_task import AgentTask
+
+    db_session.add(Project(id="p1", title="Test"))
+    task = AgentTask(id="t1", project_id="p1", task_type="brainstorm", status="running")
+    db_session.add(task)
+    db_session.commit()
+
+    config = build_brainstorm_config(db_session, project_id="p1", task_id="t1")
+    tool = next(t for t in config.tools if t.name == "list_pending_inspirations")
+    result = json.loads(tool.handler())
+    assert result == []
+
+    from app.agents.tools.brainstorm import save_inspiration
+    save_inspiration(db_session, task_id="t1", insp_type="idea", title="Idea 1", content="content")
+
+    result = json.loads(tool.handler())
+    assert len(result) == 1
+    assert result[0]["title"] == "Idea 1"

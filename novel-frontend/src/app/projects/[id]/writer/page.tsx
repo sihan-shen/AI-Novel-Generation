@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   useChapters,
@@ -15,6 +15,7 @@ import { Plus, Trash2, Loader2, FileText, Sparkles } from "lucide-react";
 
 export default function WriterPage() {
   const { id: projectId } = useParams<{ id: string }>();
+  const router = useRouter();
   const { data: chapters, isLoading } = useChapters(projectId);
   const create = useCreateChapter(projectId);
   const update = useUpdateChapter(projectId);
@@ -125,7 +126,18 @@ export default function WriterPage() {
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <Button size="sm" variant="ghost" className="h-7">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7"
+                  disabled={!selectedId}
+                  onClick={() => {
+                    if (!selectedId) return;
+                    router.push(
+                      `/projects/${projectId}/agent?chapter=${selectedId}&mode=writing`,
+                    );
+                  }}
+                >
                   <Sparkles className="size-3.5 mr-1" />
                   AI
                 </Button>

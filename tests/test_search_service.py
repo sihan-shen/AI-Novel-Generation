@@ -1,8 +1,8 @@
-from app.models.project import Project
 from app.models.chapter import Chapter
-from app.models.outline import Outline
-from app.models.setting import Setting
 from app.models.idea import Idea
+from app.models.outline import Outline
+from app.models.project import Project
+from app.models.setting import Setting
 from app.services.search_service import SearchService
 
 

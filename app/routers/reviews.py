@@ -1,13 +1,16 @@
 import json as j
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas.response import APIResponse
 from app.services.review_service import ReviewService
+
+logger = logging.getLogger(__name__)
 
 
 class ReviewResponse(BaseModel):
@@ -21,8 +24,7 @@ class ReviewResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 router = APIRouter(prefix="/api/projects/{project_id}/reviews", tags=["reviews"])
@@ -52,5 +54,5 @@ async def get_review(review_id: str, project_id: str, db: Session = Depends(get_
         except (j.JSONDecodeError, ValueError):
             summary = {}
     return APIResponse(
-        data={"review": ReviewResponse.model_validate(review), "findings": findings, "summary": summary}
+        data={"review": ReviewResponse.model_validate(review), "findings": findings, "summary": summary}  # noqa: E501
     )

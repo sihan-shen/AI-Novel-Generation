@@ -1,6 +1,5 @@
-import pytest
-from app.models.project import Project
 from app.models.chapter import Chapter
+from app.models.project import Project
 
 
 class TestChaptersAPI:

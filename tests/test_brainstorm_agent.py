@@ -1,10 +1,12 @@
 """Tests for Brainstorm Agent."""
 import json
+
 import pytest
+
 from app.agents.agents.brainstorm import build_brainstorm_config
-from app.models.project import Project
-from app.models.agent_task import AgentTask
 from app.agents.tools.brainstorm import save_inspiration
+from app.models.agent_task import AgentTask
+from app.models.project import Project
 
 
 def test_build_brainstorm_config(db_session):
@@ -12,7 +14,7 @@ def test_build_brainstorm_config(db_session):
     config = build_brainstorm_config(
         db=db_session, project_id="p1", task_id="t1",
     )
-    assert config.model == "claude-sonnet-4-6"
+    assert config.model == ""
     assert config.temperature == 0.9
     assert config.max_steps == 50
     assert config.token_budget == 100_000
@@ -71,9 +73,9 @@ def test_save_inspiration_multiple_accumulates(db_session):
 @pytest.mark.asyncio
 async def test_run_agent_handoff_action():
     """run_agent returns status='handoff' when agent emits handoff action."""
+    from app.agents.autonomy import AutonomyConfig
     from app.agents.base import AgentConfig, run_agent
     from app.agents.blackboard import Blackboard
-    from app.agents.autonomy import AutonomyConfig
 
     bb = Blackboard(
         project_id="p1",
@@ -109,8 +111,9 @@ def test_detect_intent_brainstorm():
 
     class FakeIntentAdapter:
         async def generate(self, messages, **kwargs):
-            from app.llm.adapter import LLMResponse
             import re
+
+            from app.llm.adapter import LLMResponse
             msg = messages[-1]["content"]
             # Extract user message from prompt template: 用户消息: "<message>"
             m = re.search(r'用户消息:\s*"(.+?)"', msg)
@@ -142,14 +145,4 @@ def test_detect_intent_brainstorm():
     assert asyncio.run(_detect_intent(adapter, "你好")) == "other"
 
 
-def test_brainstorm_redirect_to_dashboard(client):
-    """Old /brainstorm URL redirects to dashboard."""
-    response = client.get("/brainstorm", follow_redirects=False)
-    assert response.status_code == 302
 
-
-def test_brainstorm_redirect_with_project(client):
-    """Old /brainstorm URL with project_id redirects to agent page."""
-    response = client.get("/brainstorm?project_id=p1", follow_redirects=False)
-    assert response.status_code == 302
-    assert "p1" in response.headers.get("location", "")

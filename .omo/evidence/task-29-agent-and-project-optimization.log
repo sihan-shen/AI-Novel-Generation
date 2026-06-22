@@ -1,0 +1,45 @@
+=== Todo 29: Wave 5-T5 — Frontend dedup + unwrap + dead types + review nav ===
+
+Commit: 8963362
+
+--- Verification commands ---
+
+1. grep -r "formatRelative" novel-frontend/src
+   Result: 1 definition (lib/utils.ts:8) + 3 imports (page.tsx, projects/page.tsx, projects/[id]/page.tsx)
+   PASS
+
+2. grep -r "from \"@/types/api\"" novel-frontend/src
+   Result: 0 matches
+   PASS
+
+3. grep "STATUS_BADGE\|STATUS_LABEL\|toneStyles" novel-frontend/src
+   Result: 1 definition each in lib/constants.ts + imports in page files
+   PASS
+
+4. grep "review\|审阅" novel-frontend/src/app/projects/\[id\]/page.tsx
+   Result: 0 matches (review nav link removed)
+   PASS
+
+5. cd novel-frontend && npm run lint
+   Result: pass (eslint clean)
+   PASS
+
+6. cd novel-frontend && npm run build
+   Result: pass (8 routes, no errors)
+   PASS
+
+7. git log --oneline -1
+   Result: 8963362 refactor(frontend): dedup helpers + unwrap envelope + remove dead types + fix review nav
+   PASS
+
+8. config.ts unwrap check
+   Result: lib/queries/config.ts already uses unwrap<ConfigMap>() (lines 41, 49)
+   PASS (pre-done)
+
+--- Changed files ---
+- novel-frontend/src/lib/utils.ts        (+formatRelative)
+- novel-frontend/src/lib/constants.ts    (+toneStyles, STATUS_BADGE, STATUS_LABEL)
+- novel-frontend/src/app/page.tsx        (imports, removed dupes)
+- novel-frontend/src/app/projects/page.tsx (imports, removed dupes)
+- novel-frontend/src/app/projects/[id]/page.tsx (imports, removed dupes, removed review nav)
+- novel-frontend/src/types/api.d.ts      (deleted, 4858 lines)

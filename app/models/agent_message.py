@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
-from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, Index
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text
 
 from app.database import Base
 
@@ -16,7 +16,7 @@ class AgentMessage(Base):
     message_type = Column(String, nullable=False, default="text")
     msg_metadata = Column(Text)
     sequence = Column(Integer, nullable=False, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
 
 Index("ix_agent_messages_task_id", AgentMessage.task_id)

@@ -4,7 +4,6 @@ Idempotent: checks if column exists before adding.
 """
 from sqlalchemy import text
 
-
 MIGRATION_KEY = "m003_add_idea_updated_at"
 
 

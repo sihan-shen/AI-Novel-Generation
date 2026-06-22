@@ -1,10 +1,14 @@
-import json
-from typing import AsyncGenerator
+import logging
+from collections.abc import AsyncGenerator
+
 from sqlalchemy.orm import Session
-from app.llm.adapter import get_adapter
+
+from app.llm.adapter import get_adapter, record_usage
 from app.llm.prompts.loader import load as load_prompt
-from app.services.outline_service import OutlineService
 from app.schemas.outline import OutlineCreate
+from app.services.outline_service import OutlineService
+
+logger = logging.getLogger(__name__)
 
 
 class OutlineGenerationError(Exception):
@@ -13,6 +17,16 @@ class OutlineGenerationError(Exception):
 
 class OutlineGenerationService:
     """AI-powered outline generation, step by step."""
+
+    @staticmethod
+    def _make_usage_callback(db: Session, adapter, scenario: str, project_id: str):
+        """Build a usage_callback that records AI call usage after a stream finishes."""
+        def _callback(usage: dict):
+            try:
+                record_usage(db, adapter.model, usage, scenario=scenario, project_id=project_id)
+            except Exception as e:
+                logger.warning("record_usage failed for %s: %s", scenario, e)
+        return _callback
 
     @staticmethod
     async def generate_volumes_stream(
@@ -28,11 +42,13 @@ class OutlineGenerationService:
 
         messages = [
             {"role": "system", "content": system_content},
-            {"role": "user", "content": f"请根据以下故事描述，设计整部小说的卷结构：\n\n{story_desc}"},
+            {"role": "user", "content": f"请根据以下故事描述，设计整部小说的卷结构：\n\n{story_desc}"},  # noqa: E501
         ]
 
         adapter = get_adapter(db)
-        async for chunk in adapter.generate_stream(messages, temperature=0.7, max_tokens=4096):
+        usage_callback = OutlineGenerationService._make_usage_callback(db, adapter, "outline_gen_volumes", project_id)  # noqa: E501
+        stream = adapter.generate_stream(messages, temperature=0.7, max_tokens=4096, usage_callback=usage_callback)  # noqa: E501
+        async for chunk in stream:  # type: ignore[attr-defined]
             yield chunk
 
     @staticmethod
@@ -59,7 +75,9 @@ class OutlineGenerationService:
         ]
 
         adapter = get_adapter(db)
-        async for chunk in adapter.generate_stream(messages, temperature=0.7, max_tokens=4096):
+        usage_callback = OutlineGenerationService._make_usage_callback(db, adapter, "outline_gen_chapters", project_id)  # noqa: E501
+        stream = adapter.generate_stream(messages, temperature=0.7, max_tokens=4096, usage_callback=usage_callback)  # noqa: E501
+        async for chunk in stream:  # type: ignore[attr-defined]
             yield chunk
 
     @staticmethod
@@ -86,7 +104,9 @@ class OutlineGenerationService:
         ]
 
         adapter = get_adapter(db)
-        async for chunk in adapter.generate_stream(messages, temperature=0.7, max_tokens=4096):
+        usage_callback = OutlineGenerationService._make_usage_callback(db, adapter, "outline_gen_sections", project_id)  # noqa: E501
+        stream = adapter.generate_stream(messages, temperature=0.7, max_tokens=4096, usage_callback=usage_callback)  # noqa: E501
+        async for chunk in stream:  # type: ignore[attr-defined]
             yield chunk
 
     @staticmethod
@@ -108,15 +128,17 @@ class OutlineGenerationService:
 
         messages = [
             {"role": "system", "content": system_content},
-            {"role": "user", "content": f"章标题：{chapter_title}\n\n细纲：\n{sections_text}\n\n请根据以上细纲撰写正文。"},
+            {"role": "user", "content": f"章标题：{chapter_title}\n\n细纲：\n{sections_text}\n\n请根据以上细纲撰写正文。"},  # noqa: E501
         ]
 
         adapter = get_adapter(db)
-        async for chunk in adapter.generate_stream(messages, temperature=0.8, max_tokens=8192):
+        usage_callback = OutlineGenerationService._make_usage_callback(db, adapter, "outline_gen_content", project_id)  # noqa: E501
+        stream = adapter.generate_stream(messages, temperature=0.8, max_tokens=8192, usage_callback=usage_callback)  # noqa: E501
+        async for chunk in stream:  # type: ignore[attr-defined]
             yield chunk
 
     @staticmethod
-    def confirm_save(db: Session, project_id: str, items: list[dict], parent_id: str | None = None) -> int:
+    def confirm_save(db: Session, project_id: str, items: list[dict], parent_id: str | None = None) -> int:  # noqa: E501
         """Batch save generated outlines to DB. Returns count saved."""
         count = 0
         for item in items:
@@ -132,7 +154,7 @@ class OutlineGenerationService:
             obj = OutlineService.create(db, data)
             count += 1
             if children:
-                count += OutlineGenerationService.confirm_save(db, project_id, children, obj.id)
+                count += OutlineGenerationService.confirm_save(db, project_id, children, obj.id)  # type: ignore[arg-type]
         return count
 
     @staticmethod

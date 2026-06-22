@@ -1,6 +1,8 @@
 import uuid
-from datetime import datetime
-from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey
+from datetime import UTC, datetime
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+
 from app.database import Base
 
 
@@ -19,5 +21,5 @@ class Outline(Base):
     word_count_target = Column(Integer, default=0)
     word_count_actual = Column(Integer, default=0)
     pov_character = Column(String, default="")
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))  # noqa: E501

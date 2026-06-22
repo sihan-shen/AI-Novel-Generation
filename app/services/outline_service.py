@@ -1,6 +1,11 @@
+import logging
+
 from sqlalchemy.orm import Session
+
 from app.models.outline import Outline
 from app.schemas.outline import OutlineCreate, OutlineUpdate
+
+logger = logging.getLogger(__name__)
 
 
 class OutlineService:
@@ -24,6 +29,7 @@ class OutlineService:
         db.add(obj)
         db.commit()
         db.refresh(obj)
+        logger.info("Created outline %s (project %s)", obj.id, obj.project_id)
         return obj
 
     @staticmethod
@@ -51,11 +57,13 @@ class OutlineService:
     def delete(db: Session, outline_id: str) -> tuple[bool, int]:
         obj = OutlineService.get(db, outline_id)
         if not obj:
+            logger.warning("Delete failed: outline %s not found", outline_id)
             return False, 0
         child_count = db.query(Outline).filter(Outline.parent_id == outline_id).count()
         db.query(Outline).filter(Outline.parent_id == outline_id).delete()
         db.delete(obj)
         db.commit()
+        logger.info("Deleted outline %s (children %d)", outline_id, child_count)
         return True, child_count
 
     @staticmethod

@@ -25,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus, Trash2, Loader2, Edit3 } from "lucide-react";
 
 const CATEGORIES = [

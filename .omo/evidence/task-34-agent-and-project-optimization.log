@@ -1,0 +1,78 @@
+# Wave 6-T4 Evidence — service + tool unit tests
+
+## Commit
+55b7bc5 test(services,tools): unit tests for review/setting tools, config builders, services
+
+## Changed files
+- tests/test_services_tools.py (new, 462 lines, 21 tests)
+- .omo/plans/agent-and-project-optimization.md (todo 34 checkbox marked)
+
+## Verification commands & results
+
+1. `pytest tests/test_services_tools.py -v --tb=short`
+   Result: 21 passed, 0 failed
+
+2. `pytest tests/ -q --tb=no`
+   Result: 246 passed, 0 failed, 16628 warnings in ~11s
+
+3. `pytest tests/ --cov=app/agents/tools --cov=app/services --cov-report=term-missing`
+   Coverage results:
+   - app/agents/tools/review.py: 89%
+   - app/agents/tools/setting.py: 85%
+   - app/agents/tools/writing.py: 90%
+   - app/agents/tools/brainstorm.py: 90%
+   - app/agents/tools/shared.py: 78%
+   - app/services/review_service.py: 84%
+   - app/services/setting_service.py: 85%
+   - app/services/outline_gen_service.py: 96%
+   - app/services/search_service.py: 100%
+   - app/services/config_service.py: 93%
+   - app/services/outline_service.py: 88%
+   - app/services/chapter_service.py: 87%
+   - app/services/project_service.py: 75%
+   - app/services/style_service.py: 74%
+   - app/services/idea_service.py: 68%
+   - app/services/cleaning_service.py: 46%
+   - TOTAL: 84%
+
+## Tests added (21)
+
+### tools/review.py (3 tests)
+- test_get_chapter_content_found
+- test_get_chapter_content_not_found
+- test_submit_review_creates_review_row
+
+### tools/setting.py (7 tests)
+- test_search_settings_no_filter
+- test_search_settings_with_keywords
+- test_search_settings_with_category
+- test_get_setting_detail_found
+- test_get_setting_detail_not_found
+- test_propose_setting_creates_new
+- test_propose_setting_updates_existing_by_key
+- test_link_settings_creates_relation
+- test_search_settings_inactive_excluded
+- test_propose_setting_suggest_mode_returns_suggestion
+
+### agents config builders (3 tests)
+- test_build_writer_config (8 tools, temperature 0.7)
+- test_build_reviewer_config (8 tools, temperature 0.3)
+- test_build_settings_mgr_config (8 tools, temperature 0.3)
+
+### services (6 tests)
+- test_outline_gen_confirm_save
+- test_review_service_run_review_returns_4_dimensions
+- test_review_service_run_review_fallback_on_bad_json
+- test_setting_service_build_llm_context_non_empty
+- test_setting_service_build_llm_context_with_related_ids
+
+## Adversarial QA
+- malformed_input: probed — tests exercise missing chapter_id, missing setting_id, non-JSON LLM response
+- stale_state: not-applicable — no cached artifacts
+- dirty_worktree: verified — git status shows only test_services_tools.py and plan file committed
+- flaky_tests: not-applicable — deterministic in-memory SQLite fixtures, no timing dependencies
+- misleading_success_output: probed — coverage report shows real line coverage, not just test count
+- hung_or_long_commands: not-applicable — pytest completes in ~11s
+- prompt_injection: not-applicable — no LLM prompt construction in test code
+- cancel_resume: not-applicable — no resumable flow in this task
+- repeated_interruptions: not-applicable — single-shot test run

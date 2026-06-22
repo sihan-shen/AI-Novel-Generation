@@ -1,5 +1,10 @@
+import logging
 from abc import ABC, abstractmethod
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
+from dataclasses import dataclass
+from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class LLMResponse:
@@ -8,7 +13,18 @@ class LLMResponse:
         self.usage = usage or {}
 
 
+@dataclass
+class ToolUseResponse:
+    """Response from an LLM turn that may include tool calls."""
+    content: str
+    tool_calls: list[dict]
+    finish_reason: str
+    usage: dict
+
+
 class LLMAdapter(ABC):
+    supports_native_tools: bool = False
+
     @abstractmethod
     async def generate(self, messages: list[dict], **kwargs) -> LLMResponse:
         ...
@@ -19,6 +35,18 @@ class LLMAdapter(ABC):
 
     @abstractmethod
     def count_tokens(self, text: str) -> int:
+        ...
+
+    @abstractmethod
+    async def generate_with_tools(
+        self,
+        messages: list[dict],
+        tools: list[dict],
+        *,
+        temperature: float,
+        max_tokens: int,
+        stream_callback: Callable[[str], None] | None,
+    ) -> ToolUseResponse:
         ...
 
 
@@ -40,6 +68,8 @@ def get_adapter(db: Any = None) -> LLMAdapter:
     else:
         api_key = settings.claude_api_key or settings.openai_api_key
         model = "claude-sonnet-4-6"
+
+    provider = provider.lower()
 
     if not model:
         from app.llm.provider_registry import PROVIDERS
@@ -89,3 +119,5 @@ def record_usage(db: Any, model: str, usage: dict, scenario: str = "",
     )
     db.add(record)
     db.commit()
+
+logger.info("Module %s loaded", __name__)

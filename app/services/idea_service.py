@@ -1,14 +1,20 @@
+import logging
+
 from sqlalchemy.orm import Session
+
 from app.models.idea import Idea
+
+logger = logging.getLogger(__name__)
 
 
 class IdeaService:
     @staticmethod
-    def create(db: Session, project_id: str | None, title: str, content: str, source: str = "", tags: str = "[]") -> Idea:
+    def create(db: Session, project_id: str | None, title: str, content: str, source: str = "", tags: str = "[]") -> Idea:  # noqa: E501
         idea = Idea(project_id=project_id, title=title, content=content, source=source, tags=tags)
         db.add(idea)
         db.commit()
         db.refresh(idea)
+        logger.info("Created idea %s", idea.id)
         return idea
 
     @staticmethod
@@ -31,9 +37,9 @@ class IdeaService:
         idea = db.query(Idea).filter(Idea.id == idea_id).first()
         if not idea:
             return False
-        idea.status = "promoted"
-        idea.promoted_to_type = target_type
-        idea.promoted_to_id = target_id
+        idea.status = "promoted"  # type: ignore[assignment]
+        idea.promoted_to_type = target_type  # type: ignore[assignment]
+        idea.promoted_to_id = target_id  # type: ignore[assignment]
         db.commit()
         return True
 
@@ -41,7 +47,9 @@ class IdeaService:
     def delete(db: Session, idea_id: str) -> bool:
         idea = db.query(Idea).filter(Idea.id == idea_id).first()
         if not idea:
+            logger.warning("Delete failed: idea %s not found", idea_id)
             return False
         db.delete(idea)
         db.commit()
+        logger.info("Deleted idea %s", idea_id)
         return True

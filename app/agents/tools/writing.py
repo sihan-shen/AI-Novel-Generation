@@ -1,11 +1,12 @@
 """Writer Agent tool handlers."""
 
 import json
+
 from sqlalchemy.orm import Session
-from app.services.setting_service import SettingService
-from app.services.outline_service import OutlineService
+
 from app.services.chapter_service import ChapterService
-from app.schemas.chapter import ChapterCreate
+from app.services.outline_service import OutlineService
+from app.services.setting_service import SettingService
 
 
 def lookup_settings(db: Session, keywords: list[str], project_id: str) -> str:
@@ -50,7 +51,7 @@ def get_recent_chapters(db: Session, project_id: str, count: int = 3) -> str:
     chapters = ChapterService.list_by_project(db, project_id)
     recent = chapters[-count:] if len(chapters) > count else chapters
     return json.dumps([
-        {"id": c.id, "title": c.title, "content_preview": (c.content or "")[:300], "word_count": c.word_count}
+        {"id": c.id, "title": c.title, "content_preview": (c.content or "")[:300], "word_count": c.word_count}  # noqa: E501
         for c in recent
     ], ensure_ascii=False)
 
@@ -62,9 +63,9 @@ def get_style_guide(db: Session, project_id: str) -> str:
     links = db.query(ProjectStyleLink).filter(ProjectStyleLink.project_id == project_id).all()
     styles = []
     for link in links:
-        style = StyleService.get(db, link.style_id)
+        style = StyleService.get(db, link.style_id)  # type: ignore[arg-type]
         if style:
-            styles.append({"name": style.name, "analysis": style.analysis or "{}", "weight": link.weight})
+            styles.append({"name": style.name, "analysis": style.analysis or "{}", "weight": link.weight})  # noqa: E501
     return json.dumps(styles, ensure_ascii=False)
 
 
@@ -81,9 +82,9 @@ def write_chapter(
                 "type": "pending_suggestion", "id": f"sug-{outline_id}",
                 "tool": "write_chapter",
                 "summary": f"建议章节：{title} ({len(content)}字)",
-                "detail": {"title": title, "content_preview": content[:300], "outline_id": outline_id},
+                "detail": {"title": title, "content_preview": content[:300], "outline_id": outline_id},  # noqa: E501
             })
-        return json.dumps({"status": "suggested", "title": title, "word_count": len(content)}, ensure_ascii=False)
+        return json.dumps({"status": "suggested", "title": title, "word_count": len(content)}, ensure_ascii=False)  # noqa: E501
 
     from app.models.chapter import Chapter
     from app.models.chapter_snapshot import ChapterSnapshot
@@ -102,27 +103,27 @@ def write_chapter(
                 chapter_id=existing.id, task_id=task_id,
                 content=existing.content, title=existing.title,
             ))
-        existing.title = title
-        existing.content = content
-        existing.word_count = len(content)
-        existing.generated_by_type = "agent"
-        existing.generated_by_task_id = task_id
+        existing.title = title  # type: ignore[assignment]
+        existing.content = content  # type: ignore[assignment]
+        existing.word_count = len(content)  # type: ignore[assignment]
+        existing.generated_by_type = "agent"  # type: ignore[assignment]
+        existing.generated_by_task_id = task_id  # type: ignore[assignment]
         db.commit()
-        return json.dumps({"status": "updated", "chapter_id": existing.id, "word_count": len(content)}, ensure_ascii=False)
+        return json.dumps({"status": "updated", "chapter_id": existing.id, "word_count": len(content)}, ensure_ascii=False)  # noqa: E501
 
     ch = Chapter(
         project_id=project_id, outline_id=outline_id, title=title, content=content,
         sort_order=sort_order, status="published" if write_mode == "direct" else "draft",
         generated_by_type="agent", generated_by_task_id=task_id, generation_prompt="",
     )
-    ch.word_count = len(content)
+    ch.word_count = len(content)  # type: ignore[assignment]
     db.add(ch)
     db.commit()
     db.refresh(ch)
-    return json.dumps({"status": "created", "chapter_id": ch.id, "word_count": ch.word_count}, ensure_ascii=False)
+    return json.dumps({"status": "created", "chapter_id": ch.id, "word_count": ch.word_count}, ensure_ascii=False)  # noqa: E501
 
 
-def update_outline_status(db: Session, outline_id: str, status: str = "done", write_mode: str = "draft") -> str:
+def update_outline_status(db: Session, outline_id: str, status: str = "done", write_mode: str = "draft") -> str:  # noqa: E501
     """Update outline node status."""
     from app.schemas.outline import OutlineUpdate
     OutlineService.update(db, outline_id, OutlineUpdate(status=status))
@@ -130,4 +131,4 @@ def update_outline_status(db: Session, outline_id: str, status: str = "done", wr
 
 
 def _outline_dict(item) -> dict:
-    return {"id": item.id, "parent_id": item.parent_id, "level": item.level, "sort_order": item.sort_order, "title": item.title, "summary": item.summary or "", "status": item.status}
+    return {"id": item.id, "parent_id": item.parent_id, "level": item.level, "sort_order": item.sort_order, "title": item.title, "summary": item.summary or "", "status": item.status}  # noqa: E501

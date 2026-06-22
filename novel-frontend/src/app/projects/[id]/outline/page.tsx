@@ -11,7 +11,7 @@ import {
 } from "@/lib/queries/outlines";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Trash2, Loader2, ChevronRight, ChevronDown, FileText } from "lucide-react";
 
 export default function OutlinePage() {
@@ -29,7 +29,11 @@ export default function OutlinePage() {
   const toggle = (id: string) =>
     setExpanded((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
 

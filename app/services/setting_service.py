@@ -1,8 +1,11 @@
-import json
-from sqlalchemy.orm import Session
-from app.models.setting import Setting, SettingRelation
-from app.schemas.setting import SettingCreate, SettingUpdate, SettingRelationCreate
+import logging
 
+from sqlalchemy.orm import Session
+
+from app.models.setting import Setting, SettingRelation
+from app.schemas.setting import SettingCreate, SettingRelationCreate, SettingUpdate
+
+logger = logging.getLogger(__name__)
 
 CATEGORIES = ["世界观", "人物", "组织", "地理", "魔法/科技体系", "事件", "物品", "自定义"]
 
@@ -19,6 +22,7 @@ class SettingService:
         db.add(obj)
         db.commit()
         db.refresh(obj)
+        logger.info("Created setting %s (%s)", obj.id, obj.category)
         return obj
 
     @staticmethod
@@ -55,9 +59,11 @@ class SettingService:
     def delete(db: Session, setting_id: str) -> bool:
         obj = SettingService.get(db, setting_id)
         if not obj:
+            logger.warning("Delete failed: setting %s not found", setting_id)
             return False
         db.delete(obj)
         db.commit()
+        logger.info("Deleted setting %s", setting_id)
         return True
 
     @staticmethod
@@ -85,11 +91,11 @@ class SettingService:
     @staticmethod
     def get_relations(db: Session, setting_id: str) -> list[SettingRelation]:
         return db.query(SettingRelation).filter(
-            (SettingRelation.from_setting_id == setting_id) | (SettingRelation.to_setting_id == setting_id)
+            (SettingRelation.from_setting_id == setting_id) | (SettingRelation.to_setting_id == setting_id)  # noqa: E501
         ).all()
 
     @staticmethod
-    def build_llm_context(db: Session, project_id: str, related_ids: list[str] | None = None) -> str:
+    def build_llm_context(db: Session, project_id: str, related_ids: list[str] | None = None) -> str:  # noqa: E501
         """Build a condensed settings summary for LLM context."""
         settings = SettingService.list_by_project(db, project_id)
         lines = ["=== 设定集摘要 ==="]
@@ -103,9 +109,9 @@ class SettingService:
         if related_ids:
             lines.append("=== 详细设定（相关条目） ===")
             for sid in related_ids:
-                s = SettingService.get(db, sid)
+                s = SettingService.get(db, sid)  # type: ignore[assignment]
                 if s and s.status == "active":
                     lines.append(f"## {s.category}：{s.name} [{s.key}]")
-                    lines.append(s.summary or (s.content[:200] if s.content else ""))
+                    lines.append(s.summary or (s.content[:200] if s.content else ""))  # type: ignore[arg-type]
                     lines.append("")
         return "\n".join(lines)

@@ -1,6 +1,8 @@
 import uuid
-from datetime import datetime
-from sqlalchemy import Column, String, Text, DateTime
+from datetime import UTC, datetime
+
+from sqlalchemy import Column, DateTime, String, Text
+
 from app.database import Base
 
 
@@ -16,5 +18,5 @@ class Project(Base):
     description = Column(Text, default="")
     genre = Column(String, default="")
     status = Column(String, default="active")
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))  # noqa: E501

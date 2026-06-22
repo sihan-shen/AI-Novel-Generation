@@ -1,12 +1,15 @@
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas.response import APIResponse
 from app.services.idea_service import IdeaService
+
+logger = logging.getLogger(__name__)
 
 
 class IdeaResponse(BaseModel):
@@ -19,8 +22,7 @@ class IdeaResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class IdeaCreate(BaseModel):

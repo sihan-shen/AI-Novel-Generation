@@ -1,13 +1,17 @@
 """Reviewer Agent configuration."""
 
+from pathlib import Path
+
 from app.agents.base import AgentConfig, Tool
 from app.agents.tools.review import (
-    get_chapter_content, check_setting_consistency,
-    check_style_consistency, check_logic_structure, submit_review,
+    check_logic_structure,
+    check_setting_consistency,
+    check_style_consistency,
+    get_chapter_content,
+    submit_review,
 )
-from app.agents.tools.writing import get_style_guide, get_recent_chapters
 from app.agents.tools.shared import search_any
-from pathlib import Path
+from app.agents.tools.writing import get_recent_chapters, get_style_guide
 
 
 def _load_prompt() -> str:
@@ -24,29 +28,30 @@ def build_reviewer_config(
         tools=[
             Tool(name="get_chapter_content", description="Get full chapter content. Args: none",
                  parameters={"type": "object", "properties": {}},
-                 handler=lambda **kw: get_chapter_content(db, chapter_id=chapter_id)),
+                 handler=lambda **kw: get_chapter_content(db, chapter_id=chapter_id)),  # type: ignore[arg-type]
             Tool(name="get_style_guide", description="Get style guide. Args: none",
                  parameters={"type": "object", "properties": {}},
-                 handler=lambda **kw: get_style_guide(db, project_id=project_id)),
-            Tool(name="get_recent_chapters", description="Get recent chapters. Args: count (int, opt)",
+                 handler=lambda **kw: get_style_guide(db, project_id=project_id)),  # type: ignore[arg-type]
+            Tool(name="get_recent_chapters", description="Get recent chapters. Args: count (int, opt)",  # noqa: E501
                  parameters={"type": "object", "properties": {"count": {"type": "integer"}}},
-                 handler=lambda **kw: get_recent_chapters(db, project_id=project_id, count=kw.get("count", 3))),
-            Tool(name="check_setting_consistency", description="Check settings consistency. Args: none",
+                 handler=lambda **kw: get_recent_chapters(db, project_id=project_id, count=kw.get("count", 3))),  # noqa: E501  # type: ignore[arg-type]
+            Tool(name="check_setting_consistency", description="Check settings consistency. Args: none",  # noqa: E501
                  parameters={"type": "object", "properties": {}},
-                 handler=lambda **kw: check_setting_consistency(db, chapter_id=chapter_id, project_id=project_id)),
+                  handler=lambda **kw: check_setting_consistency(  # type: ignore[arg-type]
+                      db, chapter_id=chapter_id, project_id=project_id)),
             Tool(name="check_style_consistency", description="Check style consistency. Args: none",
                  parameters={"type": "object", "properties": {}},
-                 handler=lambda **kw: check_style_consistency(db, chapter_id=chapter_id, project_id=project_id)),
+                  handler=lambda **kw: check_style_consistency(db, chapter_id=chapter_id, project_id=project_id)),  # noqa: E501  # type: ignore[arg-type]
             Tool(name="check_logic_structure", description="Check logic and structure. Args: none",
                  parameters={"type": "object", "properties": {}},
-                 handler=lambda **kw: check_logic_structure(db, chapter_id=chapter_id, project_id=project_id)),
-            Tool(name="submit_review", description="Submit review report with scores. Args: overall_score, setting_score, style_score, logic_score, findings (list), summary (str)",
-                 parameters={"type": "object", "properties": {"overall_score": {"type": "number"}, "setting_score": {"type": "number"}, "style_score": {"type": "number"}, "logic_score": {"type": "number"}, "findings": {"type": "array"}, "summary": {"type": "string"}}},
-                 handler=lambda **kw: submit_review(db, project_id=project_id, chapter_id=chapter_id, **kw, write_mode=write_mode, task_id=task_id),
+                  handler=lambda **kw: check_logic_structure(db, chapter_id=chapter_id, project_id=project_id)),  # noqa: E501  # type: ignore[arg-type]
+            Tool(name="submit_review", description="Submit review report with scores. Args: overall_score, setting_score, style_score, logic_score, findings (list), summary (str)",  # noqa: E501
+                 parameters={"type": "object", "properties": {"overall_score": {"type": "number"}, "setting_score": {"type": "number"}, "style_score": {"type": "number"}, "logic_score": {"type": "number"}, "findings": {"type": "array"}, "summary": {"type": "string"}}},  # noqa: E501
+                 handler=lambda **kw: submit_review(db, project_id=project_id, chapter_id=chapter_id, **kw, write_mode=write_mode, task_id=task_id),  # noqa: E501
                  confirm_before=True),
             Tool(name="search_any", description="Cross-entity search. Args: q (str)",
                  parameters={"type": "object", "properties": {"q": {"type": "string"}}},
-                 handler=lambda **kw: search_any(db, q=kw.get("q", ""))),
+                 handler=lambda **kw: search_any(db, q=kw.get("q", ""), project_id=project_id)),
         ],
-        model="claude-sonnet-4-6", temperature=0.3,
+        temperature=0.3,
     )

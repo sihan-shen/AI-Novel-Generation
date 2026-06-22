@@ -1,16 +1,16 @@
-import yaml
 from pathlib import Path
+
+import yaml
 from sqlalchemy.orm import Session
 
-from app.services.setting_service import SettingService
-from app.services.outline_service import OutlineService
 from app.services.chapter_service import ChapterService
+from app.services.setting_service import SettingService
 
 
 class ContextBuilder:
     """Assembles structured context for LLM calls based on scenario type."""
 
-    SCENARIOS = ["writing", "brainstorm", "review", "style_analysis", "cleaning"]
+    SCENARIOS = ["brainstorm", "review"]
 
     def __init__(self, db: Session):
         self.db = db
@@ -44,7 +44,7 @@ class ContextBuilder:
         recent_chapters = ChapterService.list_by_project(self.db, project_id)
         if recent_chapters:
             last = recent_chapters[-1]
-            context_parts.append(f"=== 最近章节 ===\n标题: {last.title}\n内容预览: {last.content[:300]}")
+            context_parts.append(f"=== 最近章节 ===\n标题: {last.title}\n内容预览: {last.content[:300]}")  # noqa: E501
 
         # Build user prompt from template
         from jinja2 import Template

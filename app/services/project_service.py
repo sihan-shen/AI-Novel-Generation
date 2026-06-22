@@ -1,6 +1,11 @@
+import logging
+
 from sqlalchemy.orm import Session
+
 from app.models.project import Project
 from app.schemas.project import ProjectCreate, ProjectUpdate
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectService:
@@ -10,6 +15,7 @@ class ProjectService:
         db.add(project)
         db.commit()
         db.refresh(project)
+        logger.info("Created project %s", project.id)
         return project
 
     @staticmethod
@@ -35,7 +41,9 @@ class ProjectService:
     def delete(db: Session, project_id: str) -> bool:
         project = ProjectService.get(db, project_id)
         if not project:
+            logger.warning("Delete failed: project %s not found", project_id)
             return False
         db.delete(project)
         db.commit()
+        logger.info("Deleted project %s", project_id)
         return True

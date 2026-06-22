@@ -1,10 +1,14 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.schemas.outline import OutlineCreate, OutlineUpdate, OutlineResponse
+from app.schemas.outline import OutlineCreate, OutlineResponse, OutlineUpdate
 from app.schemas.response import APIResponse
 from app.services.outline_service import OutlineService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/projects/{project_id}/outlines", tags=["outlines"])
 
@@ -31,7 +35,7 @@ async def get_outline(project_id: str, outline_id: str, db: Session = Depends(ge
 
 
 @router.put("/{outline_id}", response_model=APIResponse[OutlineResponse])
-async def update_outline(project_id: str, outline_id: str, body: OutlineUpdate, db: Session = Depends(get_db)):
+async def update_outline(project_id: str, outline_id: str, body: OutlineUpdate, db: Session = Depends(get_db)):  # noqa: E501
     outline = OutlineService.update(db, outline_id, body)
     if not outline:
         raise HTTPException(status_code=404, detail="Outline not found")
@@ -50,3 +54,5 @@ async def delete_outline(project_id: str, outline_id: str, db: Session = Depends
 async def reorder_outlines(project_id: str, body: dict, db: Session = Depends(get_db)):
     OutlineService.reorder(db, body["items"])
     return APIResponse(data={"ok": True})
+
+logger.info("Module %s loaded", __name__)

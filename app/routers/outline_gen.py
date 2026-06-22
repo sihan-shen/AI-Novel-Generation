@@ -1,10 +1,14 @@
 import json
+import logging
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.services.outline_gen_service import OutlineGenerationService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/project/{project_id}/outline/generate", tags=["outline_gen"])
 
@@ -16,7 +20,7 @@ async def generate_volumes(project_id: str, request: Request, db: Session = Depe
     setting_ids = body.get("setting_ids", [])
 
     async def event_stream():
-        async for chunk in OutlineGenerationService.generate_volumes_stream(db, project_id, story_desc, setting_ids):
+        async for chunk in OutlineGenerationService.generate_volumes_stream(db, project_id, story_desc, setting_ids):  # noqa: E501
             yield f"data: {json.dumps({'content': chunk})}\n\n"
         yield "data: [DONE]\n\n"
 
@@ -28,7 +32,7 @@ async def generate_chapters(project_id: str, request: Request, db: Session = Dep
     body = await request.json()
     async def event_stream():
         async for chunk in OutlineGenerationService.generate_chapters_stream(
-            db, project_id, body.get("volume_title", ""), body.get("volume_summary", ""), int(body.get("count", 0))
+            db, project_id, body.get("volume_title", ""), body.get("volume_summary", ""), int(body.get("count", 0))  # noqa: E501
         ):
             yield f"data: {json.dumps({'content': chunk})}\n\n"
         yield "data: [DONE]\n\n"
@@ -40,7 +44,7 @@ async def generate_sections(project_id: str, request: Request, db: Session = Dep
     body = await request.json()
     async def event_stream():
         async for chunk in OutlineGenerationService.generate_sections_stream(
-            db, project_id, body.get("chapter_title", ""), body.get("chapter_summary", ""), int(body.get("count", 0))
+            db, project_id, body.get("chapter_title", ""), body.get("chapter_summary", ""), int(body.get("count", 0))  # noqa: E501
         ):
             yield f"data: {json.dumps({'content': chunk})}\n\n"
         yield "data: [DONE]\n\n"

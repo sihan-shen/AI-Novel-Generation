@@ -1,0 +1,28 @@
+Wave 1-T4 Evidence Log
+======================
+
+Commit: 0594b2c feat(agent): config-driven model + per-turn AI call recording
+
+Files changed:
+  M app/agents/agents/brainstorm.py    (removed model=)
+  M app/agents/agents/reviewer.py      (removed model=)
+  M app/agents/agents/settings_mgr.py  (removed model=)
+  M app/agents/agents/writer.py        (removed model=)
+  M app/agents/base.py                 (added db, agent_type params; wired record_usage with time.monotonic() timing and try/except)
+  M app/agents/orchestrator.py         (pass db + agent_type to run_agent)
+  M app/routers/agent.py               (pass db + agent_type to run_agent in brainstorm turn)
+  M tests/test_brainstorm_agent.py     (updated assertion: config.model == "")
+  A tests/test_agent_record_usage.py   (2 new TDD tests)
+
+Test results:
+  - pytest tests/ -q --tb=no: 144 passed
+  - pytest tests/test_agent_base.py tests/test_adapter_records.py -x -q: 23 passed
+  - grep -n "model=" app/agents/agents/*.py: 0 matches
+
+New test IDs:
+  - tests/test_agent_record_usage.py::test_run_agent_records_ai_call
+  - tests/test_agent_record_usage.py::test_run_agent_record_usage_failure_continues
+
+Adversarial QA:
+  - misleading_success_output: CONFIRMED — AICall assertions check duration_ms > 0 and input_tokens + output_tokens > 0
+  - flaky_tests: CONFIRMED — caplog at WARNING level, deterministic

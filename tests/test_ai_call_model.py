@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from app.models.ai_call import AICall
 
 
@@ -58,8 +59,8 @@ def test_ai_call_error_status(db_session):
 
 
 from sqlalchemy import text
-from app.migrations import m001_token_usage_to_ai_call
 
+from app.migrations import m001_token_usage_to_ai_call
 
 # Production has a legacy `token_usage` table; this snippet mirrors its
 # schema so the migration tests can simulate a fresh-from-prod snapshot

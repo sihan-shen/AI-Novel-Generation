@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -5,6 +7,8 @@ from app.database import get_db
 from app.schemas.project import ProjectCreate, ProjectResponse
 from app.schemas.response import APIResponse
 from app.services.project_service import ProjectService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -33,3 +37,5 @@ async def get_project(project_id: str, db: Session = Depends(get_db)):
 async def delete_project(project_id: str, db: Session = Depends(get_db)):
     ProjectService.delete(db, project_id)
     return APIResponse(data={"deleted": project_id})
+
+logger.info("Module %s loaded", __name__)

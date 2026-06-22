@@ -1,0 +1,44 @@
+....................                                                     [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:168: 780 warnings
+  /home/sihan/文档/Projects/AI-Novel-Generation/.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:168: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return asyncio.iscoroutinefunction(obj) or inspect.isasyncgenfunction(obj)
+
+.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:433: 20 warnings
+  /home/sihan/文档/Projects/AI-Novel-Generation/.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:433: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return asyncio.iscoroutinefunction(func)
+
+tests/test_orchestrator.py::test_orchestrator_initial_state
+  /home/sihan/文档/Projects/AI-Novel-Generation/.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:1006: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    return asyncio.get_event_loop_policy()
+
+tests/test_orchestrator.py: 13 warnings
+  /home/sihan/文档/Projects/AI-Novel-Generation/.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:759: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    _restore_event_loop_policy(asyncio.get_event_loop_policy()),
+
+tests/test_orchestrator.py: 13 warnings
+  /home/sihan/文档/Projects/AI-Novel-Generation/.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:978: DeprecationWarning: 'asyncio.set_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    asyncio.set_event_loop_policy(new_loop_policy)
+
+tests/test_orchestrator.py: 13 warnings
+  /home/sihan/文档/Projects/AI-Novel-Generation/.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:979: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+
+tests/test_orchestrator.py: 13 warnings
+  /home/sihan/文档/Projects/AI-Novel-Generation/.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:774: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    policy = asyncio.get_event_loop_policy()
+
+tests/test_orchestrator.py: 13 warnings
+  /home/sihan/文档/Projects/AI-Novel-Generation/.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:821: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    policy = asyncio.get_event_loop_policy()
+
+tests/test_orchestrator.py: 13 warnings
+  /home/sihan/文档/Projects/AI-Novel-Generation/.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:847: DeprecationWarning: 'asyncio.set_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    asyncio.set_event_loop_policy(previous_policy)
+
+tests/test_orchestrator.py: 13 warnings
+  /home/sihan/文档/Projects/AI-Novel-Generation/.venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:859: DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16
+    policy = asyncio.get_event_loop_policy()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+20 passed, 892 warnings in 0.07s

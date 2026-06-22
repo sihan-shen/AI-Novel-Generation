@@ -1,8 +1,12 @@
+import logging
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.services.search_service import SearchService
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/api", tags=["search"])

@@ -1,0 +1,63 @@
+# Task 2 Evidence — Wave 1-T1: native tool-use API in LLM adapters
+
+## Commit
+SHA: ff01709
+Message: feat(llm): native tool-use API + LLMToolParseError + stream usage capture with capability flag
+
+## Files changed
+- A  app/llm/exceptions.py (new LLMToolParseError)
+- M  app/llm/adapter.py (ToolUseResponse dataclass, supports_native_tools, generate_with_tools abstract)
+- M  app/llm/claude_adapter.py (supports_native_tools=True, generate_with_tools impl, stream usage callback)
+- M  app/llm/openai_adapter.py (supports_native_tools=True, generate_with_tools impl, stream usage callback)
+- A  tests/test_llm_adapter_tooluse.py (11 tests covering a-e)
+
+## Test results
+
+### Scope tests (my responsibility)
+```
+$ .venv/bin/python -m pytest tests/test_agent_base.py tests/test_adapter_records.py -x -q
+14 passed
+
+$ .venv/bin/python -m pytest tests/test_llm_adapter_tooluse.py -v
+collected 11 items
+test_claude_generate_with_tools_parses_tool_use PASSED
+test_claude_generate_with_tools_missing_input_raises PASSED
+test_openai_generate_with_tools_parses_tool_calls PASSED
+test_claude_generate_still_returns_text PASSED
+test_claude_generate_stream_still_yields_text PASSED
+test_openai_generate_still_returns_text PASSED
+test_openai_generate_stream_still_yields_text PASSED
+test_claude_generate_stream_surfaces_usage_via_callback PASSED
+test_openai_generate_stream_surfaces_usage_via_callback PASSED
+test_claude_supports_native_tools PASSED
+test_openai_supports_native_tools PASSED
+```
+
+### Full suite (excluding parallel todo 4 broken test)
+```
+$ .venv/bin/python -m pytest tests/ -x -q --ignore=tests/test_orchestrator_session_isolation.py
+119 passed
+```
+
+### grep capability flag
+```
+app/llm/adapter.py:22:    supports_native_tools: bool = False
+app/llm/claude_adapter.py:8:    supports_native_tools = True
+app/llm/openai_adapter.py:8:    supports_native_tools = True
+```
+
+## Lint
+ruff not installed in venv — skipped (noted in ledger).
+
+## Adversarial QA
+- **misleading_success_output**: Confirmed — pytest -v output shows all 11 new tests collected and passing.
+- **flaky_tests**: Not applicable — mocks are deterministic MagicMock with fixed responses.
+- **stale_state**: Not applicable — no cached artifacts.
+- **malformed_input**: Probed — test_claude_generate_with_tools_missing_input_raises confirms LLMToolParseError on missing input.
+- **dirty_worktree**: Confirmed clean after commit.
+
+## Known issue
+`tests/test_orchestrator_session_isolation.py` (from parallel Wave 1-T3 / todo 4) has a bug:
+`AttributeError: 'function' object has no attribute 'dispatch'` at line 47.
+This is outside Wave 1-T1 scope and blocks `pytest tests/ -x -q` from running to completion.
+Excluding that file, the full suite is green (119 passed = 108 existing + 11 new).

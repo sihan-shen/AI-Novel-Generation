@@ -1,11 +1,15 @@
+import logging
+
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.models.project import Project
 from app.models.chapter import Chapter
-from app.models.outline import Outline
-from app.models.setting import Setting
 from app.models.idea import Idea
+from app.models.outline import Outline
+from app.models.project import Project
+from app.models.setting import Setting
+
+logger = logging.getLogger(__name__)
 
 
 def _snippet(text: str, q: str, width: int = 80) -> str:
@@ -24,11 +28,12 @@ def _snippet(text: str, q: str, width: int = 80) -> str:
 
 class SearchService:
     @staticmethod
-    def search(db: Session, q: str, type: str = "all", limit: int = 50, project_id: str | None = None) -> list[dict]:
+    def search(db: Session, q: str, type: str = "all", limit: int = 50, project_id: str | None = None) -> list[dict]:  # noqa: E501
         q = (q or "").strip()
         like = f"%{q}%" if q else "%"
         results: list[dict] = []
-        project_titles: dict[str, str] = {p.id: p.title for p in db.query(Project).all()}
+        project_titles: dict[str, str] = {p.id: p.title for p in db.query(Project).all()}  # type: ignore[misc]
+        logger.info("Search query=%s type=%s project=%s", q, type, project_id)
 
         type_handlers = {
             "project": SearchService._search_projects,
@@ -48,7 +53,7 @@ class SearchService:
 
     @staticmethod
     def _search_projects(db, q, like, project_titles, project_id):
-        query = db.query(Project).filter(or_(Project.title.ilike(like), Project.description.ilike(like)))
+        query = db.query(Project).filter(or_(Project.title.ilike(like), Project.description.ilike(like)))  # noqa: E501
         return [{
             "type": "project",
             "id": p.id,
@@ -60,7 +65,7 @@ class SearchService:
 
     @staticmethod
     def _search_chapters(db, q, like, project_titles, project_id):
-        query = db.query(Chapter).filter(or_(Chapter.title.ilike(like), Chapter.content.ilike(like)))
+        query = db.query(Chapter).filter(or_(Chapter.title.ilike(like), Chapter.content.ilike(like)))  # noqa: E501
         if project_id:
             query = query.filter(Chapter.project_id == project_id)
         return [{
@@ -74,7 +79,7 @@ class SearchService:
 
     @staticmethod
     def _search_outlines(db, q, like, project_titles, project_id):
-        query = db.query(Outline).filter(or_(Outline.title.ilike(like), Outline.summary.ilike(like)))
+        query = db.query(Outline).filter(or_(Outline.title.ilike(like), Outline.summary.ilike(like)))  # noqa: E501
         if project_id:
             query = query.filter(Outline.project_id == project_id)
         return [{

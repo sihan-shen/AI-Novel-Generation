@@ -1,6 +1,8 @@
 import uuid
-from datetime import datetime
-from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, Index
+from datetime import UTC, datetime
+
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text
+
 from app.database import Base
 
 
@@ -18,7 +20,7 @@ class AICall(Base):
     duration_ms = Column(Integer, nullable=True)
     status = Column(String, default="success")
     error_message = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
 
 Index("ai_call_created_idx", AICall.created_at.desc())

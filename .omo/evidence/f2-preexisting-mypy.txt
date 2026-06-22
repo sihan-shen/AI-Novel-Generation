@@ -1,0 +1,16 @@
+F2 Pre-existing mypy errors (out of scope — files untouched by this plan)
+================================================================================
+
+Plan touched files: app/agents/*, app/llm/*, app/routers/agent.py, app/routers/config.py,
+app/routers/chapters.py, app/services/*, app/main.py, app/database.py, app/config.py,
+app/models/*, app/schemas/*
+
+Untouched file with remaining errors:
+  app/routers/reviews.py
+
+Errors:
+  app/routers/reviews.py:47: error: Argument 1 to "loads" has incompatible type "Column[str]"; expected "str | bytes | bytearray"  [arg-type]
+  app/routers/reviews.py:53: error: Argument 1 to "loads" has incompatible type "Column[str]"; expected "str | bytes | bytearray"  [arg-type]
+
+These are SQLAlchemy Column type mismatches in a file not modified by the plan.
+All scoped (touched-file) errors have been resolved.

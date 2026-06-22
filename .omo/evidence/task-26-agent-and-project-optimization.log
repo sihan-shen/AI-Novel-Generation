@@ -1,0 +1,36 @@
+============================== Wave 5-T2 (todo 26) ==============================
+Task: unify agent router under /api + APIResponse envelope for JSON endpoints
+Commit: c7c1c30
+
+--- File changes ---
+M app/routers/agent.py                            (prefix + 5x response_model + APIResponse wrap)
+M novel-frontend/src/hooks/use-sse.ts             (remove BACKEND, relative /api URL)
+M tests/test_agent_router.py                      (4 paths, 2 body assertions)
+M tests/test_confirm_flow.py                      (5 paths, 2 body assertions)
+M tests/test_cancel.py                            (3 paths, 2 body assertions)
+M tests/test_orchestrator_session_isolation.py    (2 paths)
+
+--- next.config.ts verified (no change) ---
+lines 8-13 already contain: source "/api/:path*" -> "http://localhost:8000/api/:path*"
+
+--- pytest output ---
+216 passed, 13572 warnings in 11.32s
+
+--- npm run lint output ---
+> eslint (clean, no errors)
+
+--- npm run build output ---
+> next build (Next.js 16.2.9 / Turbopack)
+Compiled successfully in 2.4s
+TypeScript passed in 3.1s
+Static pages generated (8/8)
+Build succeeded
+
+--- post-checks ---
+grep -rn '"/project/p1/agent' tests/  -> 0 hits (confirmed)
+grep -n 'prefix=' app/routers/agent.py -> prefix="/api/project/{project_id}/agent"
+
+--- Adversarial classes probed ---
+misleading_success_output: grep confirmed all test paths updated to /api/project/p1/agent/
+flaky_tests: pytest deterministic — 216/216 passed on single run
+stale_state: n/a (no cached artifacts)

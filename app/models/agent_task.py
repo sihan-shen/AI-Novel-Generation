@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
-from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, Index
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text
 
 from app.database import Base
 
@@ -20,22 +20,22 @@ class AgentTask(Base):
     total_steps = Column(Integer, default=0)
     total_tokens = Column(Integer, default=0)
     last_committed_step = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     completed_at = Column(DateTime, nullable=True)
     metadata_json = Column(Text, default="{}", name="metadata")
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     @property
     def task_metadata(self) -> dict:
         import json
         try:
-            return json.loads(self.metadata_json or "{}")
+            return json.loads(self.metadata_json or "{}")  # type: ignore[arg-type]
         except (json.JSONDecodeError, TypeError):
             return {}
 
     def set_task_metadata(self, data: dict):
         import json
-        self.metadata_json = json.dumps(data, ensure_ascii=False)
+        self.metadata_json = json.dumps(data, ensure_ascii=False)  # type: ignore[assignment]
 
     def update_task_metadata(self, **kwargs):
         md = self.task_metadata
