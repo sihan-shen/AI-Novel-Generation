@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -24,6 +25,9 @@ _project_locks: dict[str, asyncio.Lock] = {}
 _pending_confirms: dict[str, asyncio.Event] = {}
 _confirm_outcomes: dict[str, dict] = {}
 _running_orchestrators: dict[str, Orchestrator] = {}  # noqa: F821
+
+logger = logging.getLogger(__name__)
+
 
 def _get_project_lock(project_id: str) -> asyncio.Lock:
     if project_id not in _project_locks:
@@ -216,6 +220,203 @@ async def _handle_brainstorm_turn(
     return events
 
 
+async def _resume_events(db: Session, project_id: str, resume_from: int):
+    """Replay past agent messages from the given sequence number for SSE reconnect."""
+    try:
+        task = db.query(AgentTask).filter(
+            AgentTask.project_id == project_id,
+            AgentTask.status.in_(["running", "waiting_user"]),
+        ).order_by(AgentTask.created_at.desc()).first()
+    except Exception:
+        logger.exception("Failed to query active task for resume, project %s", project_id)
+        raise
+    if task:
+        try:
+            old_msgs = db.query(AgentMessage).filter(
+                AgentMessage.task_id == task.id,
+                AgentMessage.sequence >= resume_from,
+            ).order_by(AgentMessage.sequence).all()
+        except Exception:
+            logger.exception("Failed to query old messages for resume, task %s", task.id)
+            raise
+        for m in old_msgs:
+            try:
+                event_data = json.loads(m.msg_metadata or "{}") if m.msg_metadata else {}
+                yield f"event: {m.message_type}\ndata: {json.dumps({'sequence': m.sequence, **event_data}, ensure_ascii=False)}\n\n"  # noqa: E501
+            except Exception:
+                logger.exception("Failed to serialize resume event for message %s", m.id)
+                raise
+        yield f"event: reconnect\ndata: {{\"status\": \"reconnected\", \"task_id\": \"{task.id}\"}}\n\n"  # noqa: E501
+    else:
+        yield "event: reconnect\ndata: {\"status\": \"no_active_task\"}\n\n"
+
+
+async def _handle_brainstorm_flow(
+    db: Session, adapter, task: AgentTask, message: str, project_id: str
+):
+    """Handle existing brainstorm task: timeout check, turn execution, SSE event emission."""
+    if _check_timeout(db, task):
+        yield f"event: brainstorm_end\ndata: {json.dumps({'message': '脑暴已超时', 'timeout': True}, ensure_ascii=False)}\n\n"  # noqa: E501
+        return
+
+    events = await _handle_brainstorm_turn(db, task, message, project_id, adapter)
+
+    handoff_event = next((e for e in events if e["type"] == "brainstorm_handoff"), None)
+    if handoff_event:
+        yield f"event: brainstorm_end\ndata: {json.dumps({'message': '切换到写作模式', 'handoff': True}, ensure_ascii=False)}\n\n"  # noqa: E501
+        yield f"event: orchestrator_thought\ndata: {json.dumps({'text': '脑暴已完成，请重新发送写作请求'}, ensure_ascii=False)}\n\n"  # noqa: E501
+        return
+
+    for event in events:
+        yield f"event: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"  # noqa: E501
+
+
+def _cleanup_orchestrator(
+    task_obj: AgentTask, blackboard, seq: int, orch_db: Session | None, db: Session
+):
+    """Persist final orchestrator state and close the orchestrator DB session."""
+    _running_orchestrators.pop(task_obj.id, None)
+    if blackboard is not None:
+        final_state = blackboard.orchestrator_state
+        task_obj.orchestrator_state = final_state  # type: ignore[assignment]
+        task_obj.total_steps = seq  # type: ignore[assignment]
+        task_obj.total_tokens = blackboard.cumulative_tokens  # type: ignore[assignment]
+        if final_state in ("DONE", "CANCELLED", "IDLE"):
+            task_obj.status = "completed" if final_state == "DONE" else "cancelled"  # type: ignore[assignment]
+            task_obj.completed_at = datetime.now(UTC)  # type: ignore[assignment]
+        elif final_state == "WAITING_USER":
+            task_obj.status = "waiting_user"  # type: ignore[assignment]
+        with contextlib.suppress(Exception):
+            task_obj.blackboard_snapshot = json.dumps(  # type: ignore[assignment]
+                blackboard.to_snapshot(), ensure_ascii=False
+            )
+    try:
+        db.commit()
+    except Exception:
+        logger.exception("Failed to commit cleanup state for task %s", task_obj.id)
+        with contextlib.suppress(Exception):
+            db.rollback()
+    if orch_db is not None:
+        orch_db.close()
+
+
+async def _run_orchestrator_flow(
+    db: Session, adapter, body: ChatRequest, project_id: str
+):
+    """Create write_chapter orchestrator, stream events, persist messages, cleanup."""
+    from app.agents.autonomy import AutonomyConfig
+    from app.agents.blackboard import Blackboard
+    from app.agents.orchestrator import Orchestrator
+
+    autonomy = AutonomyConfig()
+    task_def = {
+        "type": "write_chapter",
+        "chapter_outline_id": body.chapter_outline_id,
+        "target_words": body.target_words,
+    }
+    task_obj = AgentTask(
+        id=str(uuid.uuid4()),
+        project_id=project_id,
+        task_type="write_chapter",
+        target_desc=body.message[:500],
+        autonomy_config=json.dumps(autonomy.to_dict()),
+        orchestrator_state="RUNNING",
+        status="running",
+    )
+    db.add(task_obj)
+    try:
+        db.commit()
+    except Exception:
+        logger.exception("Failed to create orchestrator task for project %s", project_id)
+        db.rollback()
+        raise
+
+    seq = 0
+    orch_db = None
+    blackboard = None
+    try:
+        orch_db = SessionLocal()
+        blackboard = Blackboard(
+            project_id=project_id, task=task_def, autonomy_config=autonomy
+        )
+        orch = Orchestrator(
+            db=orch_db, blackboard=blackboard, adapter=adapter, task_id=task_obj.id
+        )
+        _running_orchestrators[task_obj.id] = orch
+        orch_task = asyncio.create_task(orch.run())
+
+        while not orch_task.done() or not blackboard.events.empty():
+            try:
+                event = await asyncio.wait_for(blackboard.events.get(), timeout=0.5)
+                if event.get("type") == "confirm_request":
+                    event_id = event.get("id")
+                    if event_id and event_id in blackboard._confirm_events:
+                        _pending_confirms[event_id] = blackboard._confirm_events[event_id]
+                seq += 1
+                event["sequence"] = seq
+                try:
+                    event_json = json.dumps(event, ensure_ascii=False)
+                except Exception:
+                    logger.exception(
+                        "Failed to serialize orchestration event for task %s",
+                        task_obj.id,
+                    )
+                    raise
+                yield f"event: {event['type']}\ndata: {event_json}\n\n"  # noqa: E501
+
+                content = event.get("text", event.get("summary", event.get("tool", "")))
+                try:
+                    msg_metadata_str = json.dumps(event, ensure_ascii=False)
+                except Exception:
+                    logger.exception("Failed to serialize msg_metadata for task %s", task_obj.id)
+                    raise
+                msg = AgentMessage(
+                    id=str(uuid.uuid4()),
+                    task_id=task_obj.id,
+                    role="user" if event["type"] in ("user_message", "confirm_response") else "assistant",  # noqa: E501
+                    content=str(content)[:2000],
+                    message_type=event["type"],
+                    msg_metadata=msg_metadata_str,
+                    sequence=seq,
+                )
+                db.add(msg)
+                try:
+                    db.commit()
+                except Exception:
+                    logger.exception(
+                        "Failed to persist orchestration event for task %s",
+                        task_obj.id,
+                    )
+                    db.rollback()
+                    raise
+
+                if seq % 10 == 1:
+                    task_obj.total_steps = seq  # type: ignore[assignment]
+                    try:
+                        db.commit()
+                    except Exception:
+                        logger.exception("Failed to update step count for task %s", task_obj.id)
+                        db.rollback()
+                        raise
+
+                if seq % 5 == 0:
+                    try:
+                        task_obj.blackboard_snapshot = json.dumps(  # type: ignore[assignment]
+                            blackboard.to_snapshot(), ensure_ascii=False
+                        )
+                        db.commit()
+                    except Exception:
+                        pass
+            except TimeoutError:
+                if orch_task.done():
+                    orch_task.result()
+                    break
+    finally:
+        _cleanup_orchestrator(task_obj, blackboard, seq, orch_db, db)
+
+    yield "event: done\ndata: {}\n\n"
+
+
 router = APIRouter(prefix="/api/project/{project_id}/agent", tags=["agent"])
 class ChatRequest(BaseModel):
     message: str
@@ -242,58 +443,25 @@ async def chat_stream(
     db: Session = Depends(get_db),
 ):
     async def event_stream():
-        # If resuming, replay past messages from agent_messages
         if resume_from > 0:
-            task = db.query(AgentTask).filter(
-                AgentTask.project_id == project_id,
-                AgentTask.status.in_(["running", "waiting_user"]),
-            ).order_by(AgentTask.created_at.desc()).first()
-            if task:
-                old_msgs = db.query(AgentMessage).filter(
-                    AgentMessage.task_id == task.id,
-                    AgentMessage.sequence >= resume_from,
-                ).order_by(AgentMessage.sequence).all()
-                for m in old_msgs:
-                    event_data = json.loads(m.msg_metadata or "{}") if m.msg_metadata else {}
-                    yield f"event: {m.message_type}\ndata: {json.dumps({'sequence': m.sequence, **event_data}, ensure_ascii=False)}\n\n"  # noqa: E501
-                yield f"event: reconnect\ndata: {{\"status\": \"reconnected\", \"task_id\": \"{task.id}\"}}\n\n"  # noqa: E501
-            else:
-                yield "event: reconnect\ndata: {\"status\": \"no_active_task\"}\n\n"
+            async for event in _resume_events(db, project_id, resume_from):
+                yield event
             return
 
         adapter = get_adapter(db)
         lock = _get_project_lock(project_id)
 
-        # ---- Check for existing active task ----
         async with lock:
             active_task = _get_active_task(db, project_id)
 
             if active_task and active_task.task_type == "brainstorm":
-                # Check timeout
-                if _check_timeout(db, active_task):
-                    yield f"event: brainstorm_end\ndata: {json.dumps({'message': '脑暴已超时', 'timeout': True}, ensure_ascii=False)}\n\n"  # noqa: E501
-                    return
-
-                # Handle brainstorm turn
-                events = await _handle_brainstorm_turn(
-                    db, active_task, body.message, project_id, adapter
-                )
-
-                # Handle handoff from brainstorm
-                handoff_event = next((e for e in events if e["type"] == "brainstorm_handoff"), None)
-                if handoff_event:
-                    yield f"event: brainstorm_end\ndata: {json.dumps({'message': '切换到写作模式', 'handoff': True}, ensure_ascii=False)}\n\n"  # noqa: E501
-                    yield f"event: orchestrator_thought\ndata: {json.dumps({'text': '脑暴已完成，请重新发送写作请求'}, ensure_ascii=False)}\n\n"  # noqa: E501
-                    return
-
-                # Emit brainstorm events
-                for event in events:
-                    yield f"event: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"  # noqa: E501
+                async for event in _handle_brainstorm_flow(
+                    db, adapter, active_task, body.message, project_id
+                ):
+                    yield event
                 return
 
-            # ---- No active task: detect intent ----
             if active_task is None:
-                # Check for explicit /brainstorm command
                 if body.message.strip().startswith("/brainstorm"):
                     intent = "brainstorm"
                 else:
@@ -315,95 +483,14 @@ async def chat_stream(
 
                     yield f"event: agent_start\ndata: {json.dumps({'agent': 'brainstorm', 'task_id': task_obj.id}, ensure_ascii=False)}\n\n"  # noqa: E501
 
-                    events = await _handle_brainstorm_turn(
-                        db, task_obj, body.message, project_id, adapter
-                    )
-                    for event in events:
-                        yield f"event: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"  # noqa: E501
+                    async for event in _handle_brainstorm_flow(
+                        db, adapter, task_obj, body.message, project_id
+                    ):
+                        yield event
                     return
 
-        # ---- Normal orchestrator flow (original code, outside the async with lock) ----
-        from app.agents.autonomy import AutonomyConfig
-        from app.agents.blackboard import Blackboard
-        from app.agents.orchestrator import Orchestrator
-
-        autonomy = AutonomyConfig()
-        task_def = {"type": "write_chapter", "chapter_outline_id": body.chapter_outline_id, "target_words": body.target_words}  # noqa: E501
-        task_obj = AgentTask(
-            id=str(uuid.uuid4()),
-            project_id=project_id,
-            task_type="write_chapter",
-            target_desc=body.message[:500],
-            autonomy_config=json.dumps(autonomy.to_dict()),
-            orchestrator_state="RUNNING",
-            status="running",
-        )
-        db.add(task_obj)
-        db.commit()
-        task_id = task_obj.id
-
-        orch_db = SessionLocal()
-        blackboard = Blackboard(project_id=project_id, task=task_def, autonomy_config=autonomy)
-        orch = Orchestrator(db=orch_db, blackboard=blackboard, adapter=adapter, task_id=task_id)
-        _running_orchestrators[task_id] = orch
-        orch_task = asyncio.create_task(orch.run())
-        seq = 0
-
-        try:
-            while not orch_task.done() or not blackboard.events.empty():
-                try:
-                    event = await asyncio.wait_for(blackboard.events.get(), timeout=0.5)
-                    if event.get("type") == "confirm_request":
-                        event_id = event.get("id")
-                        if event_id and event_id in blackboard._confirm_events:
-                            _pending_confirms[event_id] = blackboard._confirm_events[event_id]
-                    seq += 1
-                    event["sequence"] = seq
-                    yield f"event: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"  # noqa: E501
-
-                    content = event.get("text", event.get("summary", event.get("tool", "")))
-                    msg = AgentMessage(
-                        id=str(uuid.uuid4()),
-                        task_id=task_id,
-                        role="user" if event["type"] in ("user_message", "confirm_response") else "assistant",  # noqa: E501
-                        content=str(content)[:2000],
-                        message_type=event["type"],
-                        msg_metadata=json.dumps(event, ensure_ascii=False),
-                        sequence=seq,
-                    )
-                    db.add(msg)
-                    db.commit()
-
-                    if seq % 10 == 1:
-                        task_obj.total_steps = seq
-                        db.commit()
-
-                    if seq % 5 == 0:
-                        try:
-                            task_obj.blackboard_snapshot = json.dumps(blackboard.to_snapshot(), ensure_ascii=False)  # noqa: E501
-                            db.commit()
-                        except Exception:
-                            pass
-                except TimeoutError:
-                    if orch_task.done():
-                        break
-        finally:
-            _running_orchestrators.pop(task_id, None)
-            final_state = blackboard.orchestrator_state
-            task_obj.orchestrator_state = final_state
-            task_obj.total_steps = seq
-            task_obj.total_tokens = blackboard.cumulative_tokens
-            if final_state in ("DONE", "CANCELLED", "IDLE"):
-                task_obj.status = "completed" if final_state == "DONE" else "cancelled"
-                task_obj.completed_at = datetime.now(UTC)
-            elif final_state == "WAITING_USER":
-                task_obj.status = "waiting_user"
-            with contextlib.suppress(Exception):
-                task_obj.blackboard_snapshot = json.dumps(blackboard.to_snapshot(), ensure_ascii=False)  # noqa: E501
-            db.commit()
-            orch_db.close()
-
-        yield "event: done\ndata: {}\n\n"
+        async for event in _run_orchestrator_flow(db, adapter, body, project_id):
+            yield event
 
     return StreamingResponse(
         event_stream(), media_type="text/event-stream",
