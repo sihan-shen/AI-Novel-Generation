@@ -3,7 +3,8 @@
 import asyncio
 import contextlib
 import json
-import threading
+import logging
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
@@ -15,24 +16,29 @@ from app.schemas.setting import SettingCreate, SettingRelationCreate, SettingUpd
 from app.services.setting_service import SettingService
 
 _resolved_conflicts_fallback: list[dict] = []
+_llm_pool = ThreadPoolExecutor(max_workers=1)
+
+logger = logging.getLogger(__name__)
 
 
-def _run_async(coro):
-    result = [None]
-    exc = [None]
+def _sync_generate(adapter, messages, **kwargs):
+    """Run adapter.generate() from synchronous code, with thread-pool timeout.
 
-    def target():
-        try:
-            result[0] = asyncio.run(coro)
-        except Exception as e:
-            exc[0] = e
+    Uses a dedicated ThreadPoolExecutor so that on TimeoutError the future
+    is cancelled and the worker thread is reclaimed — unlike the raw
+    threading.Thread + t.join(timeout=60) pattern which leaks the thread.
+    """
+    if not asyncio.iscoroutinefunction(adapter.generate):
+        return adapter.generate(messages, **kwargs)
 
-    t = threading.Thread(target=target)
-    t.start()
-    t.join(timeout=60)
-    if exc[0]:
-        raise exc[0]
-    return result[0]
+    async def _gen():
+        return await adapter.generate(messages, **kwargs)
+
+    try:
+        asyncio.get_running_loop()
+        return _llm_pool.submit(asyncio.run, _gen()).result(timeout=30)
+    except RuntimeError:
+        return asyncio.run(_gen())
 
 
 def search_settings(db: Session, project_id: str, keywords: str = "", category: str | None = None) -> str:  # noqa: E501
@@ -115,19 +121,11 @@ def propose_setting(
     return json.dumps({"status": "created", "setting_id": new_s.id}, ensure_ascii=False)
 
 
-def detect_conflicts(db: Session, project_id: str, new_setting_ids: list[str]) -> str:
-    new_settings = []
-    for sid in new_setting_ids:
-        s = SettingService.get(db, sid)
-        if s:
-            new_settings.append(s)
-
-    existing_settings = SettingService.list_by_project(db, project_id)
-    active_existing = [s for s in existing_settings if s.status == "active"]
-
-    conflicts: list[dict] = []
+def _detect_key_duplicates(
+    new_settings: list[Setting], active_existing: list[Setting],
+) -> list[dict]:
+    """Detect settings that share the same key across new and existing sets."""
     seen_keys: dict[str, list[str]] = {}
-
     for s in new_settings:
         if s.key:
             seen_keys.setdefault(s.key, []).append(s.id)  # type: ignore[arg-type]
@@ -135,6 +133,7 @@ def detect_conflicts(db: Session, project_id: str, new_setting_ids: list[str]) -
         if s.key:
             seen_keys.setdefault(s.key, []).append(s.id)  # type: ignore[arg-type]
 
+    conflicts: list[dict] = []
     for key, ids in seen_keys.items():
         unique_ids = list(dict.fromkeys(ids))
         if len(unique_ids) > 1:
@@ -144,59 +143,83 @@ def detect_conflicts(db: Session, project_id: str, new_setting_ids: list[str]) -
                 "severity": "high",
                 "setting_ids": unique_ids,
             })
+    return conflicts
 
-    if new_settings and active_existing:
+
+def _build_contradiction_prompt(
+    new_settings: list[Setting], active_existing: list[Setting],
+) -> str:
+    """Build the LLM prompt for contradiction detection between two setting sets."""
+    lines = [
+        "Detect contradictions between the following new settings and existing active settings.",  # noqa: E501
+        "",
+        "=== New Settings ===",
+    ]
+    lines += [
+        f"ID: {s.id} | Key: {s.key} | Name: {s.name} | Content: {s.content or s.summary or ''}"  # noqa: E501
+        for s in new_settings
+    ]
+    lines += ["", "=== Existing Active Settings ==="]
+    lines += [
+        f"ID: {s.id} | Key: {s.key} | Name: {s.name} | Content: {s.content or s.summary or ''}"  # noqa: E501
+        for s in active_existing
+    ]
+    lines += [
+        "",
+        'Return JSON only: {"conflicts":[{"id":"...","desc":"...","severity":"low|medium|high","setting_ids":["..."]}]}. '  # noqa: E501
+        'If no contradictions, return {"conflicts":[]}.',
+    ]
+    return "\n".join(lines)
+
+
+def _detect_llm_contradictions(
+    db: Session, new_settings: list[Setting],
+    active_existing: list[Setting], project_id: str,
+) -> list[dict]:
+    """Use LLM to detect contradictions between new and existing settings."""
+    if not new_settings or not active_existing:
+        return []
+    conflicts: list[dict] = []
+    try:
+        adapter = get_adapter(db)
+        messages = [
+            {"role": "system", "content": "You are a setting consistency checker. Respond with valid JSON only."},  # noqa: E501
+            {"role": "user", "content": _build_contradiction_prompt(new_settings, active_existing)},
+        ]
+        response = _sync_generate(adapter, messages, temperature=0.3, max_tokens=1024)
         try:
-            adapter = get_adapter(db)
-            prompt_lines = [
-                "Detect contradictions between the following new settings and existing active settings.",  # noqa: E501
-                "",
-                "=== New Settings ===",
-            ]
-            for s in new_settings:
-                prompt_lines.append(f"ID: {s.id} | Key: {s.key} | Name: {s.name} | Content: {s.content or s.summary or ''}")  # noqa: E501
-            prompt_lines.append("")
-            prompt_lines.append("=== Existing Active Settings ===")
-            for s in active_existing:
-                prompt_lines.append(f"ID: {s.id} | Key: {s.key} | Name: {s.name} | Content: {s.content or s.summary or ''}")  # noqa: E501
-            prompt_lines.append("")
-            prompt_lines.append(
-                'Return JSON only: {"conflicts":[{"id":"...","desc":"...","severity":"low|medium|high","setting_ids":["..."]}]}. '  # noqa: E501
-                'If no contradictions, return {"conflicts":[]}.'
-            )
-
-            messages = [
-                {"role": "system", "content": "You are a setting consistency checker. Respond with valid JSON only."},  # noqa: E501
-                {"role": "user", "content": "\n".join(prompt_lines)},
-            ]
-
-            if asyncio.iscoroutinefunction(adapter.generate):
-                response = _run_async(adapter.generate(messages, temperature=0.3, max_tokens=1024))
-            else:
-                response = adapter.generate(messages, temperature=0.3, max_tokens=1024)
-
-            try:
-                llm_result = json.loads(response.content)
-                llm_conflicts = llm_result.get("conflicts", [])
-                for c in llm_conflicts:
-                    if isinstance(c, dict) and "id" in c and "desc" in c:
-                        conflicts.append({
-                            "id": c["id"],
-                            "desc": c["desc"],
-                            "severity": c.get("severity", "medium"),
-                            "setting_ids": c.get("setting_ids", []),
-                        })
-            except (json.JSONDecodeError, AttributeError):
-                pass
-
-            with contextlib.suppress(Exception):
-                record_usage(
-                    db, adapter.model, response.usage or {},  # type: ignore[attr-defined]
-                    scenario="detect_conflicts", project_id=project_id,
-                )
-        except Exception:
+            llm_result = json.loads(response.content)
+            for c in llm_result.get("conflicts", []):
+                if isinstance(c, dict) and "id" in c and "desc" in c:
+                    conflicts.append({"id": c["id"], "desc": c["desc"],
+                                      "severity": c.get("severity", "medium"),
+                                      "setting_ids": c.get("setting_ids", [])})
+        except (json.JSONDecodeError, AttributeError):
             pass
+        with contextlib.suppress(Exception):
+            record_usage(db, adapter.model, response.usage or {},
+                         scenario="detect_conflicts", project_id=project_id)
+    except Exception:
+        logger.exception("_detect_llm_contradictions: LLM contradiction check failed")
+    return conflicts
 
+
+def detect_conflicts(db: Session, project_id: str, new_setting_ids: list[str]) -> str:
+    try:
+        new_settings = [
+            s for sid in new_setting_ids if (s := SettingService.get(db, sid))
+        ]
+        existing_settings = SettingService.list_by_project(db, project_id)
+    except Exception:
+        logger.exception("detect_conflicts: Service calls failed")
+        return json.dumps({"conflicts": []}, ensure_ascii=False)
+
+    active_existing = [s for s in existing_settings if s.status == "active"]
+
+    conflicts = (
+        _detect_key_duplicates(new_settings, active_existing)
+        + _detect_llm_contradictions(db, new_settings, active_existing, project_id)
+    )
     return json.dumps({"conflicts": conflicts}, ensure_ascii=False)
 
 
