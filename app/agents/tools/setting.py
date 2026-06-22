@@ -42,7 +42,11 @@ def _sync_generate(adapter, messages, **kwargs):
 
 
 def search_settings(db: Session, project_id: str, keywords: str = "", category: str | None = None) -> str:  # noqa: E501
-    all_settings = SettingService.list_by_project(db, project_id, category=category)
+    try:
+        all_settings = SettingService.list_by_project(db, project_id, category=category)
+    except Exception:
+        logger.exception("search_settings: SettingService.list_by_project() failed")
+        return json.dumps({"error": "Failed to search settings"}, ensure_ascii=False)
     matched = []
     kw_lower = keywords.lower() if keywords else ""
     for s in all_settings:
