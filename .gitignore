@@ -8,3 +8,8 @@ data/
 .superpowers/
 .next/
 node_modules/
+.claude
+.mypy_cache
+.omo
+.pytest_cache
+.ruff_cache
