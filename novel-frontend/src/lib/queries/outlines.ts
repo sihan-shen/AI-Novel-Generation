@@ -1,5 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api, unwrap } from "@/lib/api-client";
+import { createMutationHooks } from "./factory";
 
 export interface Outline {
   id: string;
@@ -19,55 +20,34 @@ export interface Outline {
   children: Outline[];
 }
 
+export interface OutlineCreate {
+  project_id: string;
+  level?: number;
+  parent_id?: string | null;
+  title: string;
+  summary?: string;
+}
+
 export const outlineKeys = {
-  tree: (projectId: string) => ["outlines", projectId] as const,
+  all: (projectId: string) => ["outlines", projectId] as const,
 };
 
 export function useOutlineTree(projectId: string) {
   return useQuery({
-    queryKey: outlineKeys.tree(projectId),
+    queryKey: outlineKeys.all(projectId),
     queryFn: () =>
       api.get(`projects/${projectId}/outlines`).then(unwrap<Outline[]>),
     enabled: !!projectId,
   });
 }
 
-export function useCreateOutline(projectId: string) {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (data: {
-      project_id: string;
-      level?: number;
-      parent_id?: string | null;
-      title: string;
-      summary?: string;
-    }) =>
-      api
-        .post(`projects/${projectId}/outlines`, { json: data })
-        .then(unwrap<Outline>),
-    onSuccess: () =>
-      client.invalidateQueries({ queryKey: outlineKeys.tree(projectId) }),
-  });
-}
+/* ---- mutation hooks (factory-generated) ---- */
 
-export function useUpdateOutline(projectId: string) {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Outline> }) =>
-      api
-        .put(`projects/${projectId}/outlines/${id}`, { json: data })
-        .then(unwrap<Outline>),
-    onSuccess: () =>
-      client.invalidateQueries({ queryKey: outlineKeys.tree(projectId) }),
-  });
-}
+const factory = createMutationHooks<Outline, OutlineCreate>(
+  "outlines",
+  outlineKeys.all,
+);
 
-export function useDeleteOutline(projectId: string) {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) =>
-      api.delete(`projects/${projectId}/outlines/${id}`),
-    onSuccess: () =>
-      client.invalidateQueries({ queryKey: outlineKeys.tree(projectId) }),
-  });
-}
+export const useCreateOutline = factory.useCreate;
+export const useUpdateOutline = factory.useUpdate;
+export const useDeleteOutline = factory.useDelete;

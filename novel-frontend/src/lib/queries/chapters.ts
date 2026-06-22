@@ -1,5 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api, unwrap } from "@/lib/api-client";
+import { createMutationHooks } from "./factory";
 
 export interface Chapter {
   id: string;
@@ -15,6 +16,11 @@ export interface Chapter {
   updated_at: string;
 }
 
+export interface ChapterCreate {
+  title: string;
+  project_id: string;
+}
+
 export const chapterKeys = {
   all: (projectId: string) => ["chapters", projectId] as const,
 };
@@ -28,36 +34,13 @@ export function useChapters(projectId: string) {
   });
 }
 
-export function useCreateChapter(projectId: string) {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (data: { title: string; project_id: string }) =>
-      api
-        .post(`projects/${projectId}/chapters`, { json: data })
-        .then(unwrap<Chapter>),
-    onSuccess: () =>
-      client.invalidateQueries({ queryKey: chapterKeys.all(projectId) }),
-  });
-}
+/* ---- mutation hooks (factory-generated) ---- */
 
-export function useUpdateChapter(projectId: string) {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Chapter> }) =>
-      api
-        .put(`projects/${projectId}/chapters/${id}`, { json: data })
-        .then(unwrap<Chapter>),
-    onSuccess: () =>
-      client.invalidateQueries({ queryKey: chapterKeys.all(projectId) }),
-  });
-}
+const factory = createMutationHooks<Chapter, ChapterCreate>(
+  "chapters",
+  chapterKeys.all,
+);
 
-export function useDeleteChapter(projectId: string) {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) =>
-      api.delete(`projects/${projectId}/chapters/${id}`),
-    onSuccess: () =>
-      client.invalidateQueries({ queryKey: chapterKeys.all(projectId) }),
-  });
-}
+export const useCreateChapter = factory.useCreate;
+export const useUpdateChapter = factory.useUpdate;
+export const useDeleteChapter = factory.useDelete;

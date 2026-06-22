@@ -1,5 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api, unwrap } from "@/lib/api-client";
+import { createMutationHooks } from "./factory";
 
 export interface Setting {
   id: string;
@@ -40,36 +41,13 @@ export function useSettings(projectId: string, category?: string | null) {
   });
 }
 
-export function useCreateSetting(projectId: string) {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (data: SettingCreate) =>
-      api
-        .post(`projects/${projectId}/settings`, { json: { ...data, project_id: projectId } })
-        .then(unwrap<Setting>),
-    onSuccess: () =>
-      client.invalidateQueries({ queryKey: settingKeys.all(projectId) }),
-  });
-}
+/* ---- mutation hooks (factory-generated) ---- */
 
-export function useUpdateSetting(projectId: string) {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Setting> }) =>
-      api
-        .put(`projects/${projectId}/settings/${id}`, { json: data })
-        .then(unwrap<Setting>),
-    onSuccess: () =>
-      client.invalidateQueries({ queryKey: settingKeys.all(projectId) }),
-  });
-}
+const factory = createMutationHooks<Setting, SettingCreate>(
+  "settings",
+  settingKeys.all,
+);
 
-export function useDeleteSetting(projectId: string) {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) =>
-      api.delete(`projects/${projectId}/settings/${id}`),
-    onSuccess: () =>
-      client.invalidateQueries({ queryKey: settingKeys.all(projectId) }),
-  });
-}
+export const useCreateSetting = factory.useCreate;
+export const useUpdateSetting = factory.useUpdate;
+export const useDeleteSetting = factory.useDelete;
