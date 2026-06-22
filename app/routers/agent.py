@@ -37,10 +37,14 @@ def _get_project_lock(project_id: str) -> asyncio.Lock:
 
 def _get_active_task(db: Session, project_id: str):
     """Get the currently active (running or waiting_user) task for a project."""
-    return db.query(AgentTask).filter(
-        AgentTask.project_id == project_id,
-        AgentTask.status.in_(["running", "waiting_user"]),
-    ).order_by(AgentTask.updated_at.desc()).first()
+    try:
+        return db.query(AgentTask).filter(
+            AgentTask.project_id == project_id,
+            AgentTask.status.in_(["running", "waiting_user"]),
+        ).order_by(AgentTask.updated_at.desc()).first()
+    except Exception:
+        logger.exception("Failed to query active task for project %s", project_id)
+        raise
 
 
 async def _detect_intent(adapter, message: str) -> str:
@@ -72,16 +76,25 @@ async def _detect_intent(adapter, message: str) -> str:
 def _check_timeout(db: Session, task: AgentTask) -> bool:
     """Check if the active task has timed out (15 min since last message)."""
     from app.models.agent_message import AgentMessage
-    last_msg = db.query(AgentMessage).filter(
-        AgentMessage.task_id == task.id,
-    ).order_by(AgentMessage.created_at.desc()).first()
+    try:
+        last_msg = db.query(AgentMessage).filter(
+            AgentMessage.task_id == task.id,
+        ).order_by(AgentMessage.created_at.desc()).first()
+    except Exception:
+        logger.exception("Failed to query last message for timeout check, task_id=%s", task.id)
+        raise
 
     if last_msg and last_msg.created_at:
         elapsed = datetime.now(UTC) - last_msg.created_at
         if elapsed > timedelta(minutes=15):
             task.status = "timeout"  # type: ignore[assignment]
             task.completed_at = datetime.now(UTC)  # type: ignore[assignment]
-            db.commit()
+            try:
+                db.commit()
+            except Exception:
+                logger.exception("Failed to commit timeout status for task %s", task.id)
+                db.rollback()
+                raise
             return True
     return False
 
@@ -103,20 +116,34 @@ async def _handle_brainstorm_turn(
     if message.strip() in ("/done", "/end"):
         task.status = "completed"  # type: ignore[assignment]
         task.completed_at = datetime.now(UTC)  # type: ignore[assignment]
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            logger.exception("Failed to commit /done status for task %s", task.id)
+            db.rollback()
+            raise
         return [{"type": "brainstorm_end", "message": "脑暴已结束", "pending_inspirations": task.task_metadata.get("pending_inspirations", [])}]  # noqa: E501
 
     if message.strip() in ("/cancel",):
         task.status = "cancelled"  # type: ignore[assignment]
         task.completed_at = datetime.now(UTC)  # type: ignore[assignment]
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            logger.exception("Failed to commit /cancel status for task %s", task.id)
+            db.rollback()
+            raise
         return [{"type": "brainstorm_end", "message": "脑暴已取消"}]
 
     # Load recent message history (last 20 turns)
     from app.models.agent_message import AgentMessage
-    recent_msgs = db.query(AgentMessage).filter(
-        AgentMessage.task_id == task.id,
-    ).order_by(AgentMessage.sequence).all()
+    try:
+        recent_msgs = db.query(AgentMessage).filter(
+            AgentMessage.task_id == task.id,
+        ).order_by(AgentMessage.sequence).all()
+    except Exception:
+        logger.exception("Failed to query recent messages for task %s", task.id)
+        raise
 
     history = []
     for m in recent_msgs[-20:]:  # Last 20 messages
@@ -152,13 +179,22 @@ async def _handle_brainstorm_turn(
         return base
     blackboard.get_context_for = _brainstorm_context  # type: ignore[method-assign]
 
-    result = await run_agent(config, blackboard, adapter, db=db, agent_type="brainstorm")
+    try:
+        result = await run_agent(config, blackboard, adapter, db=db, agent_type="brainstorm")
+    except Exception:
+        logger.exception("run_agent failed for brainstorm task %s", task.id)
+        raise
 
     # Handle handoff
     if result.status == "handoff":
         task.status = "completed"  # type: ignore[assignment]
         task.completed_at = datetime.now(UTC)  # type: ignore[assignment]
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            logger.exception("Failed to commit handoff status for task %s", task.id)
+            db.rollback()
+            raise
         return [{
             "type": "brainstorm_handoff",
             "summary": result.output,
@@ -193,7 +229,12 @@ async def _handle_brainstorm_turn(
     if result.steps:
         task.total_tokens = (task.total_tokens or 0) + result.steps[0].token_usage.get("input_tokens", 0) + result.steps[0].token_usage.get("output_tokens", 0)  # noqa: E501
     task.updated_at = datetime.now(UTC)  # type: ignore[assignment]
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        logger.exception("Failed to persist brainstorm messages for task %s", task.id)
+        db.rollback()
+        raise
 
     # Build SSE events
     events = [{"type": "brainstorm_response", "content": result.output, "sequence": seq}]
@@ -210,11 +251,21 @@ async def _handle_brainstorm_turn(
     # Check turn limit
     turn_count = task.task_metadata.get("turn_count", 0) + 1
     task.update_task_metadata(turn_count=turn_count)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        logger.exception("Failed to update turn count for task %s", task.id)
+        db.rollback()
+        raise
     if turn_count >= 100:
         task.status = "completed"  # type: ignore[assignment]
         task.completed_at = datetime.now(UTC)  # type: ignore[assignment]
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            logger.exception("Failed to commit turn-limit completion for task %s", task.id)
+            db.rollback()
+            raise
         events.append({"type": "brainstorm_end", "message": "已达到最大轮数(100)，脑暴自动结束", "pending_inspirations": task.task_metadata.get("pending_inspirations", [])})  # noqa: E501
 
     return events
@@ -479,7 +530,15 @@ async def chat_stream(
                         status="running",
                     )
                     db.add(task_obj)
-                    db.commit()
+                    try:
+                        db.commit()
+                    except Exception:
+                        logger.exception(
+                        "Failed to create brainstorm task for project %s",
+                        project_id,
+                    )
+                        db.rollback()
+                        raise
 
                     yield f"event: agent_start\ndata: {json.dumps({'agent': 'brainstorm', 'task_id': task_obj.id}, ensure_ascii=False)}\n\n"  # noqa: E501
 
@@ -542,16 +601,24 @@ async def cancel_chat(
 
 @router.get("/pending-actions", response_model=APIResponse[dict])
 async def pending_actions(project_id: str, db: Session = Depends(get_db)):
-    task = db.query(AgentTask).filter(
-        AgentTask.project_id == project_id,
-        AgentTask.status == "waiting_user",
-    ).first()
+    try:
+        task = db.query(AgentTask).filter(
+            AgentTask.project_id == project_id,
+            AgentTask.status == "waiting_user",
+        ).first()
+    except Exception:
+        logger.exception("Failed to query waiting task for project %s", project_id)
+        raise
     actions = []
     if task:
-        pending_msgs = db.query(AgentMessage).filter(
-            AgentMessage.task_id == task.id,
-            AgentMessage.message_type == "confirm_request",
-        ).all()
+        try:
+            pending_msgs = db.query(AgentMessage).filter(
+                AgentMessage.task_id == task.id,
+                AgentMessage.message_type == "confirm_request",
+            ).all()
+        except Exception:
+            logger.exception("Failed to query pending messages for task %s", task.id)
+            raise
         actions = [{"id": m.id, "summary": m.content[:200]} for m in pending_msgs]
     return APIResponse(data={
         "has_pending": bool(task) or bool(_pending_confirms),
@@ -586,11 +653,15 @@ async def confirm_inspirations(
     from app.services.setting_service import SettingService
 
     # Find the most recent completed brainstorm task
-    task = db.query(AgentTask).filter(
-        AgentTask.project_id == project_id,
-        AgentTask.task_type == "brainstorm",
-        AgentTask.status == "completed",
-    ).order_by(AgentTask.updated_at.desc()).first()
+    try:
+        task = db.query(AgentTask).filter(
+            AgentTask.project_id == project_id,
+            AgentTask.task_type == "brainstorm",
+            AgentTask.status == "completed",
+        ).order_by(AgentTask.updated_at.desc()).first()
+    except Exception:
+        logger.exception("Failed to query completed brainstorm task for project %s", project_id)
+        raise
 
     if not task:
         return APIResponse(data={"status": "error", "message": "No completed brainstorm session found"})  # noqa: E501
@@ -602,35 +673,55 @@ async def confirm_inspirations(
         if insp["id"] not in body.inspiration_ids:
             continue
         if insp["type"] == "idea":
-            IdeaService.create(
-                db, project_id=project_id,
-                title=insp.get("title", "灵感"),
-                content=insp.get("content", ""),
-                source="brainstorm",
-            )
+            try:
+                IdeaService.create(
+                    db, project_id=project_id,
+                    title=insp.get("title", "灵感"),
+                    content=insp.get("content", ""),
+                    source="brainstorm",
+                )
+            except Exception:
+                logger.exception("Failed to save idea inspiration %s", insp.get("id"))
+                db.rollback()
+                raise
             saved_count += 1
         elif insp["type"] == "setting":
-            SettingService.create(db, SettingCreate(
-                project_id=project_id,
-                category=insp.get("category", "自定义"),
-                name=insp.get("title", "未命名"),
-                summary=insp.get("content", "")[:500],
-                content=insp.get("content", ""),
-                weight=5,
-            ))
+            try:
+                SettingService.create(db, SettingCreate(
+                    project_id=project_id,
+                    category=insp.get("category", "自定义"),
+                    name=insp.get("title", "未命名"),
+                    summary=insp.get("content", "")[:500],
+                    content=insp.get("content", ""),
+                    weight=5,
+                ))
+            except Exception:
+                logger.exception("Failed to save setting inspiration %s", insp.get("id"))
+                db.rollback()
+                raise
             saved_count += 1
         elif insp["type"] == "outline":
-            OutlineService.create(db, OutlineCreate(
-                project_id=project_id,
-                level=2,
-                title=insp.get("title", "未命名"),
-                summary=insp.get("content", "")[:500],
-            ))
+            try:
+                OutlineService.create(db, OutlineCreate(
+                    project_id=project_id,
+                    level=2,
+                    title=insp.get("title", "未命名"),
+                    summary=insp.get("content", "")[:500],
+                ))
+            except Exception:
+                logger.exception("Failed to save outline inspiration %s", insp.get("id"))
+                db.rollback()
+                raise
             saved_count += 1
 
     # Remove confirmed items from pending
     remaining = [i for i in pending if i["id"] not in body.inspiration_ids]
     task.update_task_metadata(pending_inspirations=remaining)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        logger.exception("Failed to commit inspiration confirmations for project %s", project_id)
+        db.rollback()
+        raise
 
     return APIResponse(data={"status": "ok", "saved_count": saved_count})
