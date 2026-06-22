@@ -131,15 +131,9 @@ async def run_agent(
                     )
                 continue
             except Exception as e:
-                llm_error_count += 1
-                if llm_error_count > RETRY_POLICY["llm_unavailable"]["max_retries"]:
-                    return AgentRunResult(
-                        steps=steps, output="", blackboard_changes={},
-                        status="error", error_code="llm_unavailable",
-                        retry_count=llm_error_count,
-                    )
-                logger.warning(f"LLM call failed (attempt {llm_error_count}): {e}")
-                await asyncio.sleep(2 ** min(llm_error_count, 5))
+                llm_error_count, abort = await _handle_llm_error(llm_error_count, e, steps)
+                if abort is not None:
+                    return abort
                 continue
 
             token_usage = response.usage
@@ -158,15 +152,12 @@ async def run_agent(
                 tool_name = tool_call["name"]
                 tool = next((t for t in config.tools if t.name == tool_name), None)
                 if tool is None:
-                    malformed_count += 1
-                    if malformed_count > 2:
-                        return AgentRunResult(
-                            steps=steps, output="", blackboard_changes={},
-                            status="error", error_code="malformed_response",
-                        )
-                    available = ", ".join(t.name for t in config.tools)
-                    messages.append({"role": "assistant", "content": f"Tool call: {tool_name}"})
-                    messages.append({"role": "system", "content": f"工具 '{tool_name}' 不存在。可用工具：{available}。请重新选择。"})  # noqa: E501
+                    malformed_count, abort = _handle_malformed_tool(
+                        tool_name, f"Tool call: {tool_name}", config,
+                        malformed_count, messages, steps,
+                    )
+                    if abort is not None:
+                        return abort
                     break
 
                 args = tool_call.get("args", {})
@@ -205,29 +196,10 @@ async def run_agent(
                             elif outcome.get("action") == "modify":
                                 args = outcome.get("modification", args)
 
-                try:
-                    tool_result = tool.handler(**args)
-                except Exception as e:
-                    tool_result = f"Tool execution error: {e}"
-
-                step = AgentStep(
-                    thought=response.content or "",
-                    tool_name=tool_name,
-                    tool_args=args,
-                    result=str(tool_result)[:2000],
-                    token_usage=token_usage,
+                _execute_tool_step(
+                    tool, args, response.content or "", f"Called {tool.name}",
+                    step_num, blackboard, messages, steps, token_usage,
                 )
-                steps.append(step)
-                blackboard.record_step(step)
-
-                messages.append({"role": "assistant", "content": f"Called {tool_name}"})
-                messages.append({"role": "system", "content": f"工具 '{tool_name}' 执行结果：\n{str(tool_result)[:2000]}"})  # noqa: E501
-
-                blackboard.emit_event({"type": "tool_call", "agent": "agent", "tool": tool_name, "args": args, "sequence": step_num})  # noqa: E501
-                blackboard.emit_event({"type": "tool_result", "agent": "agent", "tool": tool_name, "result": str(tool_result)[:500], "summary": str(tool_result)[:200], "sequence": step_num})  # noqa: E501
-
-                if step_num % 5 == 0:
-                    blackboard.emit_event({"type": "checkpoint", "step": step_num, "sequence": step_num})  # noqa: E501
 
             continue
 
@@ -249,15 +221,9 @@ async def run_agent(
             )
             _try_record_usage(json_response.usage, int((time.monotonic() - t0) * 1000))
         except Exception as e:
-            llm_error_count += 1
-            if llm_error_count > RETRY_POLICY["llm_unavailable"]["max_retries"]:
-                return AgentRunResult(
-                    steps=steps, output="", blackboard_changes={},
-                    status="error", error_code="llm_unavailable",
-                    retry_count=llm_error_count,
-                )
-            logger.warning(f"LLM call failed (attempt {llm_error_count}): {e}")
-            await asyncio.sleep(2 ** min(llm_error_count, 5))
+            llm_error_count, abort = await _handle_llm_error(llm_error_count, e, steps)
+            if abort is not None:
+                return abort
             continue
 
         token_usage = json_response.usage
@@ -299,41 +265,19 @@ async def run_agent(
             tool_name = parsed["tool"]
             tool = next((t for t in config.tools if t.name == tool_name), None)
             if tool is None:
-                malformed_count += 1
-                if malformed_count > 2:
-                    return AgentRunResult(
-                        steps=steps, output="", blackboard_changes={},
-                        status="error", error_code="malformed_response",
-                    )
-                available = ", ".join(t.name for t in config.tools)
-                messages.append({"role": "assistant", "content": json_response.content})
-                messages.append({"role": "system", "content": f"工具 '{tool_name}' 不存在。可用工具：{available}。请重新选择。"})  # noqa: E501
+                malformed_count, abort = _handle_malformed_tool(
+                    tool_name, json_response.content, config,
+                    malformed_count, messages, steps,
+                )
+                if abort is not None:
+                    return abort
                 continue
 
             args = parsed.get("args", {})
-            try:
-                tool_result = tool.handler(**args)
-            except Exception as e:
-                tool_result = f"Tool execution error: {e}"
-
-            step = AgentStep(
-                thought=parsed.get("thought", ""),
-                tool_name=tool_name,
-                tool_args=args,
-                result=str(tool_result)[:2000],
-                token_usage=token_usage,
+            _execute_tool_step(
+                tool, args, parsed.get("thought", ""), json_response.content,
+                step_num, blackboard, messages, steps, token_usage,
             )
-            steps.append(step)
-            blackboard.record_step(step)
-
-            messages.append({"role": "assistant", "content": json_response.content})
-            messages.append({"role": "system", "content": f"工具 '{tool_name}' 执行结果：\n{str(tool_result)[:2000]}"})  # noqa: E501
-
-            blackboard.emit_event({"type": "tool_call", "agent": "agent", "tool": tool_name, "args": args, "sequence": step_num})  # noqa: E501
-            blackboard.emit_event({"type": "tool_result", "agent": "agent", "tool": tool_name, "result": str(tool_result)[:500], "summary": str(tool_result)[:200], "sequence": step_num})  # noqa: E501
-
-            if step_num % 5 == 0:
-                blackboard.emit_event({"type": "checkpoint", "step": step_num, "sequence": step_num})  # noqa: E501
 
     messages.append({"role": "system", "content": "已达到最大步数限制，请给出 finish。"})
     try:
@@ -358,6 +302,84 @@ def _build_tool_schema_description(tools: list[Tool]) -> str:
         params_desc = json.dumps(t.parameters, ensure_ascii=False) if t.parameters else "{}"
         lines.append(f"- {t.name}: {t.description} | parameters: {params_desc}")
     return "\n".join(lines)
+
+
+def _execute_tool_step(
+    tool: Tool,
+    args: dict[str, Any],
+    thought: str,
+    assistant_content: str,
+    step_num: int,
+    blackboard: Any,
+    messages: list[dict[str, str]],
+    steps: list[AgentStep],
+    token_usage: dict[str, int],
+) -> None:
+    try:
+        tool_result = tool.handler(**args)
+    except Exception as e:
+        tool_result = f"Tool execution error: {e}"
+    result_str = str(tool_result)[:2000]
+    step = AgentStep(
+        thought=thought,
+        tool_name=tool.name,
+        tool_args=args,
+        result=result_str,
+        token_usage=token_usage,
+    )
+    steps.append(step)
+    blackboard.record_step(step)
+    messages.append({"role": "assistant", "content": assistant_content})
+    messages.append({"role": "system", "content": f"工具 '{tool.name}' 执行结果：\n{result_str}"})
+    blackboard.emit_event({
+        "type": "tool_call", "agent": "agent", "tool": tool.name,
+        "args": args, "sequence": step_num,
+    })
+    blackboard.emit_event({
+        "type": "tool_result", "agent": "agent", "tool": tool.name,
+        "result": str(tool_result)[:500], "summary": str(tool_result)[:200],
+        "sequence": step_num,
+    })
+    if step_num % 5 == 0:
+        blackboard.emit_event({"type": "checkpoint", "step": step_num, "sequence": step_num})
+
+
+async def _handle_llm_error(
+    llm_error_count: int, error: Exception, steps: list[AgentStep],
+) -> tuple[int, AgentRunResult | None]:
+    new_count = llm_error_count + 1
+    if new_count > RETRY_POLICY["llm_unavailable"]["max_retries"]:
+        return new_count, AgentRunResult(
+            steps=steps, output="", blackboard_changes={},
+            status="error", error_code="llm_unavailable",
+            retry_count=new_count,
+        )
+    logger.warning(f"LLM call failed (attempt {new_count}): {error}")
+    await asyncio.sleep(2 ** min(new_count, 5))
+    return new_count, None
+
+
+def _handle_malformed_tool(
+    tool_name: str,
+    assistant_content: str,
+    config: AgentConfig,
+    malformed_count: int,
+    messages: list[dict[str, str]],
+    steps: list[AgentStep],
+) -> tuple[int, AgentRunResult | None]:
+    new_count = malformed_count + 1
+    if new_count > 2:
+        return new_count, AgentRunResult(
+            steps=steps, output="", blackboard_changes={},
+            status="error", error_code="malformed_response",
+        )
+    available = ", ".join(t.name for t in config.tools)
+    messages.append({"role": "assistant", "content": assistant_content})
+    messages.append({
+        "role": "system",
+        "content": f"工具 '{tool_name}' 不存在。可用工具：{available}。请重新选择。",
+    })
+    return new_count, None
 
 
 # Error code → retry policy mapping
