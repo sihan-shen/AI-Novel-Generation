@@ -38,7 +38,7 @@
 | HTTP 客户端 | **ky** |
 | 类型生成 | **openapi-typescript** (FastAPI → TypeScript) |
 | 数据库 | **SQLite** (SQLAlchemy ORM) |
-| LLM API | Claude API / OpenAI API（可切换） |
+| LLM API | Claude / OpenAI / Ollama / Gemini / DeepSeek / 自定义（OpenAI 兼容） |
 
 ## 快速开始
 
@@ -46,7 +46,7 @@
 
 - Python 3.11+
 - Node.js 22+
-- 一个 LLM API Key（Claude 或 OpenAI）
+- 一个 LLM API Key（支持 Claude / OpenAI / Ollama / Gemini / DeepSeek / 自定义）
 
 ### 启动
 
@@ -56,9 +56,14 @@ git clone <url> ai-novel-generation
 cd ai-novel-generation
 
 # —— 后端 ——
+# 方式一：pip
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
+
+# 方式二：uv（推荐，更快）
+uv sync
+source .venv/bin/activate
 
 # 配置 API Key
 cp .env.example .env
@@ -90,41 +95,56 @@ npm run dev
 ```
 ai-novel-generation/
 ├── app/                          # FastAPI 后端
-│   ├── main.py                   # 入口 + 路由注册 + CORS
+│   ├── main.py                   # 入口 + 路由注册 + CORS + 启动恢复
 │   ├── config.py                 # 环境配置（API Key 等）
 │   ├── database.py               # SQLAlchemy 引擎 + init_db()
-│   ├── models/                   # ORM 模型（11 表）
-│   ├── schemas/                  # Pydantic 校验 + 响应
-│   ├── services/                 # 业务逻辑层
-│   ├── llm/                      # LLM 集成（Claude / OpenAI）
-│   │   ├── adapter.py            # 抽象基类 + 工厂
-│   │   ├── claude_adapter.py
-│   │   ├── openai_adapter.py
-│   │   └── templates/            # YAML 提示词模板
+│   ├── models/                   # ORM 模型（12 表 + 关联表）
+│   ├── schemas/                  # Pydantic 校验 + 统一响应格式
+│   ├── services/                 # 业务逻辑层（11 个 Service）
+│   ├── llm/                      # LLM 集成（多 Provider 适配）
+│   │   ├── adapter.py            # 抽象基类 + 工厂（get_adapter）
+│   │   ├── claude_adapter.py     # Claude (Anthropic) 适配器
+│   │   ├── openai_adapter.py     # OpenAI / Ollama / Gemini / DeepSeek 适配器
+│   │   ├── provider_registry.py  # Provider 注册表（6 个 Provider）
+│   │   ├── context_builder.py    # LLM 上下文拼接器
+│   │   ├── prompts/              # 纯文本提示词模板（.txt）
+│   │   └── templates/            # YAML 提示词模板（Jinja2）
 │   ├── routers/                  # JSON API 路由（纯 JSON，无 HTML）
-│   ├── agents/                   # Agent 系统（脑暴 / 写作）
-│   └── migrations/               # 数据库迁移
+│   │   ├── agent.py              # Agent 对话 + SSE 流式 + 编排
+│   │   ├── outline_gen.py        # LLM 大纲生成（SSE 流式）
+│   │   └── search.py             # 全局搜索
+│   ├── agents/                   # Agent 系统
+│   │   ├── orchestrator.py       # 编排器（状态机 + 里程碑循环）
+│   │   ├── blackboard.py         # 共享上下文 + Token 预算 + 快照
+│   │   ├── autonomy.py           # 自主写作配置
+│   │   ├── base.py               # Agent 循环 + Tool 基类
+│   │   ├── agents/               # Agent 实现（writer/reviewer/settings_mgr/brainstorm）
+│   │   └── tools/                # 工具集（writing/review/setting/search/brainstorm）
+│   ├── middleware/               # 自定义中间件
+│   └── migrations/               # 数据库迁移脚本
 │
 ├── novel-frontend/               # Next.js 前端
 │   ├── src/
-│   │   ├── app/                  # App Router 页面
+│   │   ├── app/                  # App Router 页面（11 个路由）
 │   │   ├── components/
 │   │   │   ├── ui/               # shadcn/ui 组件
 │   │   │   ├── layout/           # 侧栏、导航等
-│   │   │   └── features/         # 业务组件
+│   │   │   ├── features/agent/   # Agent 对话组件（气泡/推理面板/工具面板）
+│   │   │   └── theme/            # 主题切换
 │   │   ├── lib/
 │   │   │   ├── api-client.ts     # ky HTTP 客户端
 │   │   │   ├── query-provider.tsx # TanStack Query 提供者
-│   │   │   └── queries/          # 各资源 TanStack Query hooks
-│   │   ├── stores/               # Zustand stores
-│   │   ├── hooks/                # 自定义 hooks（SSE 等）
+│   │   │   └── queries/          # 各资源 TanStack Query hooks + mutation 工厂
+│   │   ├── stores/               # Zustand stores（agent, theme）
+│   │   ├── hooks/                # 自定义 hooks（use-sse 等）
 │   │   └── types/                # openapi-typescript 自动生成类型
 │   ├── next.config.ts            # API rewrites → localhost:8000
 │   └── package.json
 │
 ├── tests/                        # pytest 测试
 │   ├── conftest.py               # 测试夹具（SQLite 内存数据库）
-│   └── test_api_*.py             # 各资源 JSON API 测试
+│   └── test_*.py                 # 各模块单元/集成测试
+├── docs/                         # 设计文档与实现计划
 ├── dev.sh                        # 一键启动前后端
 ├── pyproject.toml
 └── README.md
@@ -148,42 +168,39 @@ ai-novel-generation/
 
 ## API 端点
 
-后端暴露了 20+ JSON API 端点（OpenAPI spec 自动同步到前端类型）：
+后端暴露了 30+ JSON API 端点（OpenAPI spec 自动同步到前端类型）：
 
 | 资源 | 端点 |
 |------|------|
 | Projects | `GET/POST /api/projects`, `GET/DELETE /api/projects/{id}` |
-| Outlines | `GET/POST /api/projects/{pid}/outlines`, `GET/PUT/DELETE /{oid}` |
-| Settings | `GET/POST /api/projects/{pid}/settings`, `GET/PUT/DELETE /{sid}` |
-| Chapters | `GET/POST /api/projects/{pid}/chapters`, `GET/PUT/DELETE /{cid}` |
+| Outlines | `GET/POST /api/projects/{pid}/outlines`, `GET/PUT/DELETE /{oid}`, `POST .../reorder` |
+| Settings | `GET/POST /api/projects/{pid}/settings`, `GET/PUT/DELETE /{sid}`, `POST .../reorder` |
+| Chapters | `GET/POST /api/projects/{pid}/chapters`, `GET/PUT/DELETE /{cid}`, `POST .../reorder`, `POST .../{cid}/rollback` |
 | Styles | `GET/DELETE /api/styles` |
-| Ideas | `GET/POST /api/ideas`, `DELETE /{id}` |
+| Ideas | `GET/POST /api/ideas`, `DELETE /{id}`, `POST /reorder` |
 | Reviews | `GET /api/projects/{pid}/reviews`, `GET /{rid}` |
-| Config | `GET/POST /api/config` |
+| Config | `GET/POST /api/config`, `GET /api/config/fetch-models` |
+| Search | `GET /api/search?q=&type=&project_id=` |
+| Outline Gen | `POST /project/{pid}/outline/generate/{volumes\|chapters\|sections\|content}`, `POST .../confirm` |
+| Agent | `POST /api/project/{pid}/agent/chat`, `POST .../chat/stream`（SSE）, `GET/POST .../tasks`, `POST .../resume`, `POST .../cancel`, `POST .../confirm`, `POST .../rollback` |
 
 所有端点返回统一格式：`{"data": ..., "message": "ok"}`。
 
 ## 测试
 
 ```bash
-# 运行后端测试（全量）
-pytest tests/
+# 后端测试
+pytest tests/                    # 全量测试
+pytest tests/test_api_projects.py -v  # 特定模块
 
-# 运行特定测试
-pytest tests/test_api_projects.py -v
+# 前端类型检查
+cd novel-frontend && npm run build
+
+# 前端单元测试
+cd novel-frontend && npm test
 
 # 生成前端类型（需要后端运行中）
 cd novel-frontend && npm run gen:types
-```
-
-## 测试
-
-```bash
-# 后端测试
-pytest tests/        # 108 tests
-
-# 前端类型检查
-cd novel-frontend && npm run build  # 12 routes
 ```
 
 ## License

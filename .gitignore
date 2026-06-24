@@ -10,6 +10,6 @@ data/
 node_modules/
 .claude
 .mypy_cache
-.omo
+.omo/
 .pytest_cache
 .ruff_cache
