@@ -44,13 +44,13 @@ async def get_review(review_id: str, project_id: str, db: Session = Depends(get_
     findings = []
     if review.findings and review.findings != "[]":
         try:
-            findings = j.loads(review.findings)
+            findings = j.loads(str(review.findings))
         except (j.JSONDecodeError, ValueError):
             findings = []
     summary = {}
     if review.summary and review.summary != "{}":
         try:
-            summary = j.loads(review.summary)
+            summary = j.loads(str(review.summary))
         except (j.JSONDecodeError, ValueError):
             summary = {}
     return APIResponse(

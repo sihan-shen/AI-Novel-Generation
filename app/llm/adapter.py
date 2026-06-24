@@ -36,6 +36,7 @@ class UsageRecord:
 
 class LLMAdapter(ABC):
     supports_native_tools: bool = False
+    model: str = ""
 
     @abstractmethod
     async def generate(self, messages: list[dict], **kwargs) -> LLMResponse:

@@ -292,7 +292,7 @@ async def _resume_events(db: Session, project_id: str, resume_from: int):
             raise
         for m in old_msgs:
             try:
-                event_data = json.loads(m.msg_metadata or "{}") if m.msg_metadata else {}
+                event_data = json.loads(str(m.msg_metadata or "{}")) if m.msg_metadata else {}
                 yield f"event: {m.message_type}\ndata: {json.dumps({'sequence': m.sequence, **event_data}, ensure_ascii=False)}\n\n"  # noqa: E501
             except Exception:
                 logger.exception("Failed to serialize resume event for message %s", m.id)
@@ -326,7 +326,7 @@ def _cleanup_orchestrator(
     task_obj: AgentTask, blackboard, seq: int, orch_db: Session | None, db: Session
 ):
     """Persist final orchestrator state and close the orchestrator DB session."""
-    _running_orchestrators.pop(task_obj.id, None)
+    _running_orchestrators.pop(str(task_obj.id), None)
     if blackboard is not None:
         final_state = blackboard.orchestrator_state
         task_obj.orchestrator_state = final_state  # type: ignore[assignment]
@@ -391,9 +391,9 @@ async def _run_orchestrator_flow(
             project_id=project_id, task=task_def, autonomy_config=autonomy
         )
         orch = Orchestrator(
-            db=orch_db, blackboard=blackboard, adapter=adapter, task_id=task_obj.id
+            db=orch_db, blackboard=blackboard, adapter=adapter, task_id=str(task_obj.id)
         )
-        _running_orchestrators[task_obj.id] = orch
+        _running_orchestrators[str(task_obj.id)] = orch
         orch_task = asyncio.create_task(orch.run())
 
         while not orch_task.done() or not blackboard.events.empty():
