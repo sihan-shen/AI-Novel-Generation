@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
@@ -32,6 +34,20 @@ def init_db():
 
 
 def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@contextmanager
+def get_db_context():
+    """Context manager that yields a DB session and closes it on exit.
+
+    Use for non-request-scoped DB access (lifespan events, background tasks)
+    where FastAPI's dependency injection is not available.
+    """
     db = SessionLocal()
     try:
         yield db

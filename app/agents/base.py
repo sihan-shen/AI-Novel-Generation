@@ -53,6 +53,7 @@ import time
 
 from sqlalchemy.orm import Session
 
+from app.agents.protocols import BlackboardProtocol, LLMAdapterProtocol
 from app.llm.adapter import record_usage
 
 logger = logging.getLogger(__name__)
@@ -60,8 +61,8 @@ logger = logging.getLogger(__name__)
 
 async def run_agent(
     config: AgentConfig,
-    blackboard: Any,  # type: ignore[name-defined]
-    adapter: Any,
+    blackboard: BlackboardProtocol,
+    adapter: LLMAdapterProtocol,
     db: Session | None = None,
     agent_type: str = "",
 ) -> AgentRunResult:
@@ -310,7 +311,7 @@ def _execute_tool_step(
     thought: str,
     assistant_content: str,
     step_num: int,
-    blackboard: Any,
+    blackboard: BlackboardProtocol,
     messages: list[dict[str, str]],
     steps: list[AgentStep],
     token_usage: dict[str, int],

@@ -2,7 +2,10 @@ import logging
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator, Callable
 from dataclasses import dataclass
-from typing import Any
+
+from sqlalchemy.orm import Session
+
+from app.agents.protocols import LLMAdapterProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +66,7 @@ class LLMAdapter(ABC):
         ...
 
 
-def get_adapter(db: Any = None) -> LLMAdapter:
+def get_adapter(db: Session | None = None) -> LLMAdapterProtocol:
     from app.config import settings
     from app.llm.claude_adapter import ClaudeAdapter
     from app.llm.openai_adapter import OpenAIAdapter
@@ -126,7 +129,7 @@ def get_adapter(db: Any = None) -> LLMAdapter:
         return OpenAIAdapter(api_key=api_key or settings.openai_api_key, model=model)
 
 
-def record_usage(db: Any, model: str, usage: dict, scenario: str = "",
+def record_usage(db: Session, model: str, usage: dict, scenario: str = "",
                  prompt: str = "", response: str = "", duration_ms: int | None = None,
                  project_id: str | None = None):
     """Record an AI call. No-op if usage is empty."""

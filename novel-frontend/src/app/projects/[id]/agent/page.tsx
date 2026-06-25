@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Loader2, Send, RotateCcw, Bot, Sparkles, Square, Settings2 } from "lucide-react";
 import { ChatBubble } from "@/components/features/agent/chat-bubble";
 import { ReasoningPanel } from "@/components/features/agent/reasoning-panel";
@@ -166,25 +166,31 @@ export default function AgentPage() {
             <Settings2 className="size-3.5" />设置
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-44">
-            <DropdownMenuLabel>写作模式</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={writeMode} onValueChange={(v) => setWriteMode(v as WriteMode)}>
-              <DropdownMenuRadioItem value="suggest">建议</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="draft">草稿</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="direct">直接</DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>写作模式</DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={writeMode} onValueChange={(v) => setWriteMode(v as WriteMode)}>
+                <DropdownMenuRadioItem value="suggest">建议</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="draft">草稿</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="direct">直接</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>重写轮数</DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>重写轮数</DropdownMenuLabel>
             <div className="px-2 py-1 flex items-center gap-2">
               <input type="range" min={1} max={5} value={maxRewriteRounds} onChange={(e) => setMaxRewriteRounds(Number(e.target.value))} className="w-full h-1 accent-accent" />
               <span className="text-xs w-4">{maxRewriteRounds}</span>
             </div>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>粒度</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={milestoneGranularity} onValueChange={(v) => setMilestoneGranularity(v as MilestoneGranularity)}>
-              <DropdownMenuRadioItem value="chapter">章</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="volume">卷</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="act">幕</DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>粒度</DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={milestoneGranularity} onValueChange={(v) => setMilestoneGranularity(v as MilestoneGranularity)}>
+                <DropdownMenuRadioItem value="chapter">章</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="volume">卷</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="act">幕</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

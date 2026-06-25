@@ -105,9 +105,9 @@ async def test_run_agent_handoff_action():
     assert result.output == "切换到写作"
 
 
-def test_detect_intent_brainstorm():
+def testdetect_intent_brainstorm():
     """Intent detection classifies brainstorm requests."""
-    from app.routers.agent import _detect_intent
+    from app.routers.agent.brainstorm import detect_intent
 
     class FakeIntentAdapter:
         async def generate(self, messages, **kwargs):
@@ -140,9 +140,9 @@ def test_detect_intent_brainstorm():
     adapter = FakeIntentAdapter()
 
     import asyncio
-    assert asyncio.run(_detect_intent(adapter, "帮我脑暴一下主角设定")) == "brainstorm"
-    assert asyncio.run(_detect_intent(adapter, "帮我写第一章")) == "writing"
-    assert asyncio.run(_detect_intent(adapter, "你好")) == "other"
+    assert asyncio.run(detect_intent(adapter, "帮我脑暴一下主角设定")) == "brainstorm"
+    assert asyncio.run(detect_intent(adapter, "帮我写第一章")) == "writing"
+    assert asyncio.run(detect_intent(adapter, "你好")) == "other"
 
 
 

@@ -5,7 +5,7 @@ import asyncio
 import pytest
 
 from app.models.project import Project
-from app.routers.agent import _confirm_outcomes, _pending_confirms
+from app.routers.agent.shared import _confirm_outcomes, _pending_confirms
 
 
 @pytest.fixture(autouse=True)

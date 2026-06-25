@@ -102,11 +102,10 @@ def _recover_agent_tasks():
     - waiting_user tasks are left untouched so a server restart does not cancel
       a user-paused conversation.
     """
-    from app.database import SessionLocal
+    from app.database import get_db_context
     from app.models.agent_task import AgentTask
 
-    db = SessionLocal()
-    try:
+    with get_db_context() as db:
         running_tasks = db.query(AgentTask).filter(
             AgentTask.status.in_(["running", "waiting_user"])
         ).all()
@@ -155,19 +154,16 @@ def _recover_agent_tasks():
                     "Recovery: task %s skipped due to error: %s", task.id, exc
                 )
                 db.rollback()
-    finally:
-        db.close()
 
 
 def _get_server_config():
     """Read host/port from DB config, falling back to env defaults."""
     try:
-        from app.database import SessionLocal
+        from app.database import get_db_context
         from app.services.config_service import ConfigService
-        db = SessionLocal()
-        cfg = ConfigService.get_all(db)
-        db.close()
-        return cfg.get("host", "0.0.0.0"), int(cfg.get("port", 8000))
+        with get_db_context() as db:
+            cfg = ConfigService.get_all(db)
+            return cfg.get("host", "0.0.0.0"), int(cfg.get("port", 8000))
     except Exception:
         return "0.0.0.0", 8000
 

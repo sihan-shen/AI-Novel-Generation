@@ -80,12 +80,27 @@ class OpenAIAdapter(LLMAdapter):
         if not self.client:
             return ToolUseResponse(content="[LLM 未配置]", tool_calls=[], finish_reason="error", usage={})  # noqa: E501
 
+        # Convert internal tool format to OpenAI API format.
+        # Internal: {"name": "...", "description": "...", "parameters": {...}}
+        # OpenAI:   {"type": "function", "function": {"name": "...", "description": "...", "parameters": {...}}}
+        openai_tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": t["name"],
+                    "description": t.get("description", ""),
+                    "parameters": t.get("parameters", {}),
+                },
+            }
+            for t in tools
+        ]
+
         response = await self.client.chat.completions.create(
             model=self.model,
             messages=messages,  # type: ignore[arg-type]
             max_tokens=max_tokens,
             temperature=temperature,
-            tools=tools,  # type: ignore[arg-type]
+            tools=openai_tools,  # type: ignore[arg-type]
         )
 
         message = response.choices[0].message
